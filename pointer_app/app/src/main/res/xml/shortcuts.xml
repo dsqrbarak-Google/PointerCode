@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="disarm"
+        android:enabled="true"
+        android:icon="@drawable/ic_tarsier"
+        android:shortcutShortLabel="@string/shortcut_disarm_short"
+        android:shortcutLongLabel="@string/shortcut_disarm_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.example.pointercode"
+            android:targetClass="com.example.pointercode.MainActivity">
+            <extra android:name="AUTO_DISARM" android:value="true" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="settings"
+        android:enabled="true"
+        android:icon="@drawable/ic_tarsier"
+        android:shortcutShortLabel="@string/shortcut_settings_short"
+        android:shortcutLongLabel="@string/shortcut_settings_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.example.pointercode"
+            android:targetClass="com.example.pointercode.MainActivity">
+            <extra android:name="OPEN_SETUP" android:value="true" />
+        </intent>
+    </shortcut>
+</shortcuts>

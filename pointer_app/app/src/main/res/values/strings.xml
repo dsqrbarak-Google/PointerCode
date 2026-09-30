@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">4S Pointer Code</string>
+    <string name="shortcut_disarm_short">נטרל קודן</string>
+    <string name="shortcut_disarm_long">נטרל קודן פוינטר לרכב</string>
+    <string name="shortcut_settings_short">הגדרות</string>
+    <string name="shortcut_settings_long">הגדרות מספר רכב וקוד</string>
+    <string name="widget_title">נטרל פוינטר</string>
+</resources>
