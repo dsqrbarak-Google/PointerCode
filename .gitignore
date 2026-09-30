@@ -1,5 +1,6 @@
 # Built application files
 *.apk
+!PointerQuickCode.apk
 *.aab
 
 # Gradle files
