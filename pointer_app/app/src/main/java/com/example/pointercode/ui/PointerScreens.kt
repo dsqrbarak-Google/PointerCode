@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,6 +35,7 @@ import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
@@ -133,7 +135,13 @@ fun DisarmScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable {
+                            val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://barak.rocks/"))
+                            context.startActivity(browserIntent)
+                        }
+                    ) {
                         Image(
                             painter = painterResource(id = R.drawable.ic_tarsier),
                             contentDescription = "4S Monkey Logo",
@@ -144,7 +152,7 @@ fun DisarmScreen(
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
                             Text(
-                                text = "Pointer QuickCode",
+                                text = "4S Pointer Code",
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White,
                                 fontSize = 17.sp
@@ -162,6 +170,16 @@ fun DisarmScreen(
                     containerColor = PointerDark
                 ),
                 actions = {
+                    IconButton(onClick = {
+                        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://barak.rocks/"))
+                        context.startActivity(browserIntent)
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.Language,
+                            contentDescription = "לאתר הבית barak.rocks",
+                            tint = Color(0xFF38BDF8)
+                        )
+                    }
                     IconButton(onClick = { onRequestPinShortcut(context) }) {
                         Icon(
                             imageVector = Icons.Default.AddCircle,
@@ -415,13 +433,23 @@ fun DisarmScreen(
                             Icon(Icons.Default.Lock, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("נטרל קודן עכשיו", fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // 4S Brand Footer Card
+                // 4S Brand Footer Card - ALWAYS VISIBLE
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            val browserIntent = Intent(
+                                Intent.ACTION_VIEW,
+                                Uri.parse("https://barak.rocks/")
+                            )
+                            context.startActivity(browserIntent)
+                        },
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -485,8 +513,6 @@ fun DisarmScreen(
         }
     }
 }
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -498,13 +524,20 @@ fun SetupScreen(
     onSave: () -> Unit,
     onCancel: () -> Unit
 ) {
+    val context = LocalContext.current
     val scrollState = rememberScrollState()
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable {
+                            val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://barak.rocks/"))
+                            context.startActivity(browserIntent)
+                        }
+                    ) {
                         Image(
                             painter = painterResource(id = R.drawable.ic_tarsier),
                             contentDescription = "4S Monkey Logo",
@@ -537,6 +570,18 @@ fun SetupScreen(
                         IconButton(onClick = onCancel) {
                             Icon(Icons.Default.Close, contentDescription = "ביטול", tint = Color.White)
                         }
+                    }
+                },
+                actions = {
+                    IconButton(onClick = {
+                        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://barak.rocks/"))
+                        context.startActivity(browserIntent)
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.Language,
+                            contentDescription = "לאתר הבית barak.rocks",
+                            tint = Color(0xFF38BDF8)
+                        )
                     }
                 }
             )
@@ -728,6 +773,79 @@ fun SetupScreen(
                             fontSize = 12.sp,
                             color = Color(0xFF455A64),
                             lineHeight = 17.sp
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 4S Brand Footer Card
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        val browserIntent = Intent(
+                            Intent.ACTION_VIEW,
+                            Uri.parse("https://barak.rocks/")
+                        )
+                        context.startActivity(browserIntent)
+                    },
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_tarsier),
+                            contentDescription = "4S Monkey Logo",
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "4S • Smart Solutions for Silly Situations",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF38BDF8)
+                            )
+                            Text(
+                                text = "דוד (דידי) ברק • גרסה 1.0",
+                                fontSize = 10.sp,
+                                color = Color(0xFF94A3B8)
+                            )
+                        }
+                    }
+
+                    Button(
+                        onClick = {
+                            val browserIntent = Intent(
+                                Intent.ACTION_VIEW,
+                                Uri.parse("https://barak.rocks/")
+                            )
+                            context.startActivity(browserIntent)
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "barak.rocks ↗",
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
