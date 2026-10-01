@@ -9,9 +9,12 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.example.pointercode.data.PointerPreferences
@@ -41,16 +44,18 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             PointerCodeTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    val state by viewModel.uiState.collectAsState()
-                    PointerMainScreen(
-                        viewModel = viewModel,
-                        state = state,
-                        onCloseActivity = { finish() }
-                    )
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = MaterialTheme.colorScheme.background
+                    ) {
+                        val state by viewModel.uiState.collectAsState()
+                        PointerMainScreen(
+                            viewModel = viewModel,
+                            state = state,
+                            onCloseActivity = { finish() }
+                        )
+                    }
                 }
             }
         }
@@ -68,7 +73,7 @@ class MainActivity : ComponentActivity() {
         if (intent.getBooleanExtra("OPEN_SETUP", false)) {
             viewModel.openSetup()
         } else if (intent.getBooleanExtra("AUTO_DISARM", false)) {
-            viewModel.disarmNow(onFinish = { finish() })
+            viewModel.disarmNow(source = "קיצור דרך", onFinish = { finish() })
         }
     }
 

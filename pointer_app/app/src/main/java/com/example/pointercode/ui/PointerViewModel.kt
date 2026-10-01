@@ -24,6 +24,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+import com.example.pointercode.bluetooth.BluetoothDeviceInfo
+import com.example.pointercode.bluetooth.BluetoothHelper
+import com.example.pointercode.bluetooth.BluetoothReceiver
+import com.example.pointercode.data.DisarmHistoryEntry
+
 sealed class ScreenMode {
     data object Disarm : ScreenMode()
     data object Setup : ScreenMode()
@@ -32,7 +37,7 @@ sealed class ScreenMode {
 sealed class DisarmStatus {
     data object Idle : DisarmStatus()
     data object Loading : DisarmStatus()
-    data class Success(val message: String, val countdown: Int) : DisarmStatus()
+    data class Success(val message: String, val countdown: Int, val isPaused: Boolean = false) : DisarmStatus()
     data class Error(val message: String, val rc: Int, val isNetwork: Boolean) : DisarmStatus()
 }
 
@@ -48,7 +53,14 @@ data class PointerUiState(
     val setupDriverName: String = "",
     val setupErrorMessage: String? = null,
     val isTestingSetup: Boolean = false,
-    val shortcutCreated: Boolean = false
+    val shortcutCreated: Boolean = false,
+    val isBtAutoDisarmEnabled: Boolean = false,
+    val btDeviceName: String = "",
+    val btDeviceAddress: String = "",
+    val pairedDevices: List<BluetoothDeviceInfo> = emptyList(),
+    val showBtDevicePicker: Boolean = false,
+    val disarmHistory: List<DisarmHistoryEntry> = emptyList(),
+    val recentlyDisarmedNotice: String? = null
 )
 
 class PointerViewModel(
@@ -65,17 +77,49 @@ class PointerViewModel(
             driverName = preferences.getDriverName(),
             setupVehicleNumber = preferences.getVehicleNumber().ifBlank { "11727004" },
             setupCode = preferences.getPointerCode().ifBlank { "4141" },
-            setupDriverName = preferences.getDriverName()
+            setupDriverName = preferences.getDriverName(),
+            isBtAutoDisarmEnabled = preferences.isBtAutoDisarmEnabled(),
+            btDeviceName = preferences.getBtDeviceName(),
+            btDeviceAddress = preferences.getBtDeviceAddress(),
+            disarmHistory = preferences.getDisarmHistory()
         )
     )
     val uiState: StateFlow<PointerUiState> = _uiState.asStateFlow()
 
     private var countdownJob: Job? = null
+    private var savedOnFinish: (() -> Unit)? = null
 
     init {
-        // If already configured on launch, automatically disarm immediately!
+        val history = preferences.getDisarmHistory()
+        val lastTime = preferences.getLastDisarmTime()
+        val timePassedMs = System.currentTimeMillis() - lastTime
+        val twoMinutesMs = 2 * 60 * 1000L // 120 seconds
+
+        val latest = history.firstOrNull()
+
         if (preferences.isConfigured()) {
-            disarmNow()
+            if (lastTime > 0 && timePassedMs < twoMinutesMs && latest?.success == true) {
+                // If sent successfully less than 2 minutes ago, don't send again automatically on app launch
+                // so the user can verify history and see that BT disarm worked.
+                val secondsAgo = (timePassedMs / 1000).coerceAtLeast(1)
+                val sourceLabel = latest.source
+                val notice = "הקוד כבר נשלח בהצלחה לפני $secondsAgo שניות ($sourceLabel) • הרכב פתוח"
+                _uiState.value = _uiState.value.copy(
+                    disarmHistory = history,
+                    recentlyDisarmedNotice = notice
+                )
+            } else {
+                // If never sent, sent > 2 min ago, OR previous attempt was a failure:
+                // Automatically send code on launch as requested ("וכמובן משלוח")!
+                val source = if (latest != null && !latest.success && timePassedMs < twoMinutesMs) {
+                    "פתיחת אפליקציה (לאחר שגיאה)"
+                } else {
+                    "פתיחת אפליקציה"
+                }
+                disarmNow(source = source)
+            }
+        } else {
+            _uiState.value = _uiState.value.copy(disarmHistory = history)
         }
     }
 
@@ -135,10 +179,10 @@ class PointerViewModel(
             setupErrorMessage = null
         )
 
-        disarmNow(onFinish)
+        disarmNow(source = "הגדרה ראשונית", onFinish = onFinish)
     }
 
-    fun disarmNow(onFinish: (() -> Unit)? = null) {
+    fun disarmNow(source: String = "ידני", onFinish: (() -> Unit)? = null) {
         countdownJob?.cancel()
         val vNumber = preferences.getVehicleNumber()
         val code = preferences.getPointerCode()
@@ -151,32 +195,63 @@ class PointerViewModel(
 
         _uiState.value = _uiState.value.copy(
             disarmStatus = DisarmStatus.Loading,
-            screenMode = ScreenMode.Disarm
+            screenMode = ScreenMode.Disarm,
+            recentlyDisarmedNotice = null
         )
 
+        val now = System.currentTimeMillis()
         viewModelScope.launch {
             val result = PointerApi.checkCode(vNumber, code, name)
             when (result) {
                 is PointerResult.Success -> {
+                    preferences.addDisarmHistory(
+                        DisarmHistoryEntry(
+                            timestamp = now,
+                            source = source,
+                            success = true,
+                            message = result.message
+                        )
+                    )
+                    _uiState.value = _uiState.value.copy(
+                        disarmHistory = preferences.getDisarmHistory()
+                    )
                     triggerHapticSuccess()
                     startAutoCloseCountdown(result.message, onFinish)
                 }
                 is PointerResult.Failure -> {
+                    preferences.addDisarmHistory(
+                        DisarmHistoryEntry(
+                            timestamp = now,
+                            source = source,
+                            success = false,
+                            message = result.message
+                        )
+                    )
                     _uiState.value = _uiState.value.copy(
                         disarmStatus = DisarmStatus.Error(
                             message = result.message,
                             rc = result.rc,
                             isNetwork = false
-                        )
+                        ),
+                        disarmHistory = preferences.getDisarmHistory()
                     )
                 }
                 is PointerResult.NetworkError -> {
+                    preferences.addDisarmHistory(
+                        DisarmHistoryEntry(
+                            timestamp = now,
+                            source = source,
+                            success = false,
+                            message = result.errorMsg
+                        )
+                    )
                     _uiState.value = _uiState.value.copy(
                         disarmStatus = DisarmStatus.Error(
                             message = result.errorMsg,
                             rc = -1,
                             isNetwork = true
-                        )
+                        ),
+                        disarmHistory = preferences.getDisarmHistory()
                     )
                 }
             }
@@ -184,25 +259,66 @@ class PointerViewModel(
     }
 
     private fun startAutoCloseCountdown(message: String, onFinish: (() -> Unit)?) {
+        savedOnFinish = onFinish
         countdownJob?.cancel()
         countdownJob = viewModelScope.launch {
             var seconds = preferences.getCountdownSeconds()
             while (seconds > 0) {
                 _uiState.value = _uiState.value.copy(
-                    disarmStatus = DisarmStatus.Success(message, seconds)
+                    disarmStatus = DisarmStatus.Success(message, seconds, isPaused = false)
                 )
                 delay(1000)
                 seconds--
             }
             _uiState.value = _uiState.value.copy(
-                disarmStatus = DisarmStatus.Success(message, 0)
+                disarmStatus = DisarmStatus.Success(message, 0, isPaused = false)
             )
-            onFinish?.invoke()
+            savedOnFinish?.invoke()
+        }
+    }
+
+    fun toggleCountdownPause() {
+        val currentStatus = _uiState.value.disarmStatus as? DisarmStatus.Success ?: return
+        if (currentStatus.countdown <= 0) return
+
+        if (!currentStatus.isPaused) {
+            // Pause countdown
+            countdownJob?.cancel()
+            _uiState.value = _uiState.value.copy(
+                disarmStatus = currentStatus.copy(isPaused = true)
+            )
+        } else {
+            // Resume countdown
+            resumeCountdown(currentStatus.message, currentStatus.countdown)
+        }
+    }
+
+    private fun resumeCountdown(message: String, remainingSeconds: Int) {
+        countdownJob?.cancel()
+        countdownJob = viewModelScope.launch {
+            var seconds = remainingSeconds
+            while (seconds > 0) {
+                _uiState.value = _uiState.value.copy(
+                    disarmStatus = DisarmStatus.Success(message, seconds, isPaused = false)
+                )
+                delay(1000)
+                seconds--
+            }
+            _uiState.value = _uiState.value.copy(
+                disarmStatus = DisarmStatus.Success(message, 0, isPaused = false)
+            )
+            savedOnFinish?.invoke()
         }
     }
 
     fun cancelCountdown() {
         countdownJob?.cancel()
+        val currentStatus = _uiState.value.disarmStatus as? DisarmStatus.Success
+        if (currentStatus != null) {
+            _uiState.value = _uiState.value.copy(
+                disarmStatus = currentStatus.copy(isPaused = true)
+            )
+        }
     }
 
     private fun triggerHapticSuccess() {
@@ -250,5 +366,60 @@ class PointerViewModel(
             }
         }
         return false
+    }
+
+    fun toggleBtAutoDisarm(enabled: Boolean) {
+        preferences.setBtAutoDisarmEnabled(enabled)
+        _uiState.value = _uiState.value.copy(isBtAutoDisarmEnabled = enabled)
+    }
+
+    fun setBtDevice(device: BluetoothDeviceInfo) {
+        preferences.setBtDevice(device.name, device.address)
+        preferences.setBtAutoDisarmEnabled(true)
+        _uiState.value = _uiState.value.copy(
+            btDeviceName = device.name,
+            btDeviceAddress = device.address,
+            isBtAutoDisarmEnabled = true,
+            showBtDevicePicker = false
+        )
+    }
+
+    fun clearBtDevice() {
+        preferences.clearBtDevice()
+        preferences.setBtAutoDisarmEnabled(false)
+        _uiState.value = _uiState.value.copy(
+            btDeviceName = "",
+            btDeviceAddress = "",
+            isBtAutoDisarmEnabled = false
+        )
+    }
+
+    fun openBtDevicePicker() {
+        refreshPairedDevices()
+        _uiState.value = _uiState.value.copy(showBtDevicePicker = true)
+    }
+
+    fun dismissBtDevicePicker() {
+        _uiState.value = _uiState.value.copy(showBtDevicePicker = false)
+    }
+
+    fun refreshPairedDevices() {
+        val devices = BluetoothHelper.getPairedDevices(appContext)
+        _uiState.value = _uiState.value.copy(pairedDevices = devices)
+    }
+
+    fun refreshHistory() {
+        _uiState.value = _uiState.value.copy(
+            disarmHistory = preferences.getDisarmHistory()
+        )
+    }
+
+    fun simulateBluetoothTrigger() {
+        val deviceName = preferences.getBtDeviceName().ifBlank { "הרכב המצומד" }
+        BluetoothReceiver.executeDisarm(appContext, preferences, deviceName)
+        viewModelScope.launch {
+            delay(1200)
+            refreshHistory()
+        }
     }
 }
