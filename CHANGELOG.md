@@ -1,5 +1,17 @@
 # יומן מעקב שינויים וניהול גרסאות (Changelog)
 
+## [1.3.1] - 2026-10-06
+
+### 🛠️ שיפורי תאימות אנדרואיד אוטו (Android Auto Compatibility Enhancements):
+- **תאימות לכל רמות ה-Car API (API Level 1 עד 7)**:
+  - הוספת מתאם תאימות דינמי `buildPaneTemplate` ב-`PointerCarScreen.kt`, התומך גם בגרסאות מארח ישנות וחדשות כאחד.
+  - הפרדת ה-`intent-filter` ב-`AndroidManifest.xml` לשני פילטרים נפרדים (`IOT` ו-`POI`), המבטיחה זיהוי תקין של ה-Service בסריקת אנדרואיד אוטו.
+  - עדכון `automotive_app_desc.xml` עם הצהרת יכולות כפולה: `<uses name="template" />` ו-`<uses name="notification" />`.
+- **הנחיות הפעלה ממוקדות למשתמש**:
+  - הגדרת "מצב יישום: מפתח" (Developer Mode: Application Mode) ב-Android Auto.
+  - איפוס מטמון (Clear Cache) וסריקת האפליקציה במסך "התאמה אישית של מרכז האפליקציות" (Customize Launcher).
+  - הפעלת התראות מתפרצות ברכב (Heads-Up Notifications) לניטרול מהיר.
+
 ## [1.3.0] - 2026-10-06
 
 ### 🚗 תמיכה מלאה ב-Android Auto (Android for Cars App Library):

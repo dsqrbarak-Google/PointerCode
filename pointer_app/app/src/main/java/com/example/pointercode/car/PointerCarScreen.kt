@@ -70,13 +70,7 @@ class PointerCarScreen(carContext: CarContext) : Screen(carContext) {
                     .addText("נא לפתוח את האפליקציה בטלפון ולהגדיר מספר רכב וקוד סודי.")
                     .build()
             )
-            val header = Header.Builder()
-                .setTitle("4S Pointer Code")
-                .setStartHeaderAction(Action.APP_ICON)
-                .build()
-            return PaneTemplate.Builder(paneBuilder.build())
-                .setHeader(header)
-                .build()
+            return buildPaneTemplate(paneBuilder.build(), "4S Pointer Code")
         }
 
         val vNumber = prefs.getVehicleNumber()
@@ -85,13 +79,7 @@ class PointerCarScreen(carContext: CarContext) : Screen(carContext) {
 
         if (isLoading) {
             paneBuilder.setLoading(true)
-            val header = Header.Builder()
-                .setTitle("מנטרל קודן רכב $formattedPlate...")
-                .setStartHeaderAction(Action.APP_ICON)
-                .build()
-            return PaneTemplate.Builder(paneBuilder.build())
-                .setHeader(header)
-                .build()
+            return buildPaneTemplate(paneBuilder.build(), "מנטרל קודן רכב $formattedPlate...")
         }
 
         // Vehicle info row
@@ -133,14 +121,25 @@ class PointerCarScreen(carContext: CarContext) : Screen(carContext) {
 
         paneBuilder.addAction(action)
 
-        val header = Header.Builder()
-            .setTitle("4S Pointer Code")
-            .setStartHeaderAction(Action.APP_ICON)
-            .build()
+        return buildPaneTemplate(paneBuilder.build(), "4S Pointer Code")
+    }
 
-        return PaneTemplate.Builder(paneBuilder.build())
-            .setHeader(header)
-            .build()
+    private fun buildPaneTemplate(pane: Pane, title: String): PaneTemplate {
+        return if (carContext.carAppApiLevel >= 5) {
+            val header = Header.Builder()
+                .setTitle(title)
+                .setStartHeaderAction(Action.APP_ICON)
+                .build()
+            PaneTemplate.Builder(pane)
+                .setHeader(header)
+                .build()
+        } else {
+            @Suppress("DEPRECATION")
+            PaneTemplate.Builder(pane)
+                .setTitle(title)
+                .setHeaderAction(Action.APP_ICON)
+                .build()
+        }
     }
 
     private fun performDisarm(source: String) {
