@@ -101,6 +101,7 @@ val PointerRed = Color(0xFFE44126)
 val PointerDark = Color(0xFF212121)
 val PlateYellow = Color(0xFFFFD600)
 val SuccessGreen = Color(0xFF2E7D32)
+const val APP_VERSION = "1.3.0"
 
 @Composable
 fun PointerMainScreen(
@@ -753,7 +754,7 @@ fun DisarmScreen(
                                     color = Color(0xFF38BDF8)
                                 )
                                 Text(
-                                    text = "דוד (דידי) ברק • גרסה 1.0",
+                                    text = "דוד (דידי) ברק • גרסה $APP_VERSION",
                                     fontSize = 10.sp,
                                     color = Color(0xFF94A3B8)
                                 )
@@ -1367,7 +1368,7 @@ fun SetupScreen(
                                 color = Color(0xFF38BDF8)
                             )
                             Text(
-                                text = "דוד (דידי) ברק • גרסה 1.0",
+                                text = "דוד (דידי) ברק • גרסה $APP_VERSION",
                                 fontSize = 10.sp,
                                 color = Color(0xFF94A3B8)
                             )
