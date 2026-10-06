@@ -54,6 +54,42 @@
             </intent-filter>
         </receiver>
 
+        <!-- Android Auto Meta-Data -->
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc" />
+        <meta-data
+            android:name="androidx.car.app.minCarApiLevel"
+            android:value="1" />
+
+        <!-- Android Auto CarAppService -->
+        <service
+            android:name=".car.PointerCarAppService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="androidx.car.app.CarAppService" />
+                <category android:name="androidx.car.app.category.IOT" />
+            </intent-filter>
+        </service>
+
+        <!-- Android Auto Connection State Receiver -->
+        <receiver
+            android:name=".car.CarConnectionReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="androidx.car.app.connection.action.CAR_CONNECTION_UPDATED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Quick Retry Action from Notification -->
+        <receiver
+            android:name=".bluetooth.DisarmActionReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.example.pointercode.ACTION_RETRY_DISARM" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>

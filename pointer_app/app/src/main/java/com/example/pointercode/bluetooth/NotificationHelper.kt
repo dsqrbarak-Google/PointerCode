@@ -12,6 +12,7 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.app.Person
 import com.example.pointercode.MainActivity
 import com.example.pointercode.R
 
@@ -19,10 +20,17 @@ object NotificationHelper {
     private const val CHANNEL_ID = "pointer_bt_channel"
     private const val NOTIFICATION_ID = 4040
 
+    private val pointerPerson: Person by lazy {
+        Person.Builder()
+            .setName("4S פוינטר")
+            .setKey("pointer_bot")
+            .build()
+    }
+
     fun createNotificationChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val name = "ניטרול קודן פוינטר"
-            val descriptionText = "התראות על ניטרול אוטומטי של קודן הרכב בעת התחברות לבלוטות'"
+            val descriptionText = "התראות על ניטרול אוטומטי של קודן הרכב בעת התחברות לבלוטות' ו-Android Auto"
             val importance = NotificationManager.IMPORTANCE_HIGH
             val channel = NotificationChannel(CHANNEL_ID, name, importance).apply {
                 description = descriptionText
@@ -47,16 +55,35 @@ object NotificationHelper {
         )
     }
 
+    private fun getRetryPendingIntent(context: Context): PendingIntent {
+        val intent = Intent(context, DisarmActionReceiver::class.java).apply {
+            action = DisarmActionReceiver.ACTION_RETRY_DISARM
+            putExtra("EXTRA_SOURCE", "התראה ברכב")
+        }
+        return PendingIntent.getBroadcast(
+            context,
+            101,
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+    }
+
     fun showDisarmingNotification(context: Context, vehicleNumber: String, deviceName: String) {
         createNotificationChannel(context)
         val formattedVehicle = formatVehicleNumber(vehicleNumber)
         val title = "מנטרל קודן רכב $formattedVehicle..."
         val text = if (deviceName.isNotBlank()) "זוהה חיבור ל-$deviceName • שולח קוד לפוינטר" else "שולח קוד לפוינטר..."
 
+        val messagingStyle = NotificationCompat.MessagingStyle(pointerPerson)
+            .setConversationTitle("4S Pointer Code")
+            .addMessage(text, System.currentTimeMillis(), pointerPerson)
+
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_tarsier)
             .setContentTitle(title)
             .setContentText(text)
+            .setStyle(messagingStyle)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(getPendingIntent(context))
@@ -74,20 +101,32 @@ object NotificationHelper {
         context: Context,
         vehicleNumber: String,
         deviceName: String,
-        statusText: String = "אין חיבור לאינטרנט • ניסיון שני יתבצע בעוד דקה..."
+        statusText: String = "התקשורת עדיין לא הצליחה • מתבצע ניסיון נוסף..."
     ) {
         createNotificationChannel(context)
         val formattedVehicle = formatVehicleNumber(vehicleNumber)
-        val title = "המתנה לתקשורת ברכב $formattedVehicle ⏳"
+        val title = "⚠️ התקשורת ברכב עדיין לא הצליחה"
+
+        val retryAction = NotificationCompat.Action.Builder(
+            R.drawable.ic_tarsier,
+            "נסה שוב כעת",
+            getRetryPendingIntent(context)
+        ).build()
+
+        val messagingStyle = NotificationCompat.MessagingStyle(pointerPerson)
+            .setConversationTitle("4S Pointer Code")
+            .addMessage("רכב $formattedVehicle: $statusText", System.currentTimeMillis(), pointerPerson)
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_tarsier)
             .setContentTitle(title)
             .setContentText(statusText)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(statusText))
+            .setStyle(messagingStyle)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(getPendingIntent(context))
+            .addAction(retryAction)
             .setProgress(0, 0, true)
             .build()
 
@@ -106,11 +145,16 @@ object NotificationHelper {
 
         val defaultSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
 
+        val messagingStyle = NotificationCompat.MessagingStyle(pointerPerson)
+            .setConversationTitle("4S Pointer Code")
+            .addMessage(text, System.currentTimeMillis(), pointerPerson)
+
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_tarsier)
             .setContentTitle(title)
             .setContentText(text)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setStyle(messagingStyle)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setSound(defaultSoundUri)
             .setVibrate(longArrayOf(0, 150, 100, 250))
@@ -128,17 +172,29 @@ object NotificationHelper {
     fun showErrorNotification(context: Context, vehicleNumber: String, errorMsg: String) {
         createNotificationChannel(context)
         val formattedVehicle = formatVehicleNumber(vehicleNumber)
-        val title = "ניטרול קודן פוינטר נכשל ⚠️"
-        val text = "רכב $formattedVehicle: $errorMsg. לחץ להפעלה ידנית."
+        val title = "התקשורת ברכב עדיין לא הצליחה ⚠️"
+        val text = "רכב $formattedVehicle: $errorMsg. לחץ לניסיון חוזר או פתח ב-Android Auto."
+
+        val retryAction = NotificationCompat.Action.Builder(
+            R.drawable.ic_tarsier,
+            "נסה שוב כעת",
+            getRetryPendingIntent(context)
+        ).build()
+
+        val messagingStyle = NotificationCompat.MessagingStyle(pointerPerson)
+            .setConversationTitle("4S Pointer Code")
+            .addMessage(text, System.currentTimeMillis(), pointerPerson)
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_tarsier)
             .setContentTitle(title)
             .setContentText(text)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setStyle(messagingStyle)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(getPendingIntent(context))
+            .addAction(retryAction)
             .build()
 
         try {

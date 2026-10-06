@@ -1215,6 +1215,77 @@ fun SetupScreen(
                 }
             }
 
+            Spacer(modifier = Modifier.height(18.dp))
+
+            // Android Auto Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .background(Color(0xFFE8F5E9), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DirectionsCar,
+                                contentDescription = null,
+                                tint = SuccessGreen,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = "תמיכה ב-Android Auto פעילה 🚗",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = PointerDark
+                            )
+                            Text(
+                                text = "שליטה ישירה ממסך הרכב והתראות בזמן אמת",
+                                fontSize = 12.sp,
+                                color = Color.Gray
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFF0FDF4),
+                        border = BorderStroke(1.dp, Color(0xFFBBF7D0)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = "• האפליקציה זמינה ישירות במסך המולטימדיה של הרכב (Android Auto) עם כפתור ניטרול וסטטוס חי.",
+                                fontSize = 12.sp,
+                                color = Color(0xFF166534),
+                                lineHeight = 17.sp
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "• אם התקשורת מתעכבת עקב בעיות קליטה בעת הכניסה לרכב, תקבל התראה קולית וויזואלית במסך הרכב עם אפשרות לניסיון חוזר מיידי בלחיצה אחת.",
+                                fontSize = 12.sp,
+                                color = Color(0xFF166534),
+                                lineHeight = 17.sp
+                            )
+                        }
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(20.dp))
 
             // Explanation Card

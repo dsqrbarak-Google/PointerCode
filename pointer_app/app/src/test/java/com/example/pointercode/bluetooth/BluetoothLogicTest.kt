@@ -132,6 +132,27 @@ class BluetoothLogicTest {
         assertEquals("מקור 4", capped[4].source)
     }
 
+    @Test
+    fun testProgressiveRetryDelays() {
+        val delays = BluetoothReceiver.retryDelaysMs
+        assertEquals(4, delays.size)
+        assertEquals(3_000L, delays[0])
+        assertEquals(6_000L, delays[1])
+        assertEquals(10_000L, delays[2])
+        assertEquals(15_000L, delays[3])
+
+        val maxAttempts = delays.size + 1
+        assertEquals(5, maxAttempts)
+
+        val totalDelay = delays.sum()
+        assertEquals(34_000L, totalDelay)
+    }
+
+    @Test
+    fun testRetryActionConstant() {
+        assertEquals("com.example.pointercode.ACTION_RETRY_DISARM", DisarmActionReceiver.ACTION_RETRY_DISARM)
+    }
+
     private fun matchesDevice(
         deviceAddress: String?,
         deviceName: String?,

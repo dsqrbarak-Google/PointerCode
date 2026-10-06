@@ -17,7 +17,7 @@ sealed class PointerResult {
 
 object PointerApi {
     private const val API_URL = "https://fleet.pointer4u.co.il/code/ws/checkcode.ashx"
-    private const val TIMEOUT_MS = 12000
+    private const val TIMEOUT_MS = 6000
 
     suspend fun checkCode(
         vehicleNumber: String,

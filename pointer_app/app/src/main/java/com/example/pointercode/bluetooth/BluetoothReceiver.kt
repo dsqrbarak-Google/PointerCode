@@ -83,7 +83,18 @@ class BluetoothReceiver : BroadcastReceiver() {
 
     companion object {
         private const val DEBOUNCE_MS = 60_000L // 60 seconds cooldown between disarms
-        internal var retryDelayMs = 60_000L // 1 minute retry delay on network failure
+        internal var retryDelaysMs: List<Long> = listOf(3_000L, 6_000L, 10_000L, 15_000L)
+
+        fun isNetworkConnected(context: Context): Boolean {
+            return try {
+                val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+                val network = cm?.activeNetwork ?: return false
+                val caps = cm.getNetworkCapabilities(network) ?: return false
+                caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            } catch (_: Exception) {
+                false
+            }
+        }
 
         fun executeDisarm(
             context: Context,
@@ -99,93 +110,116 @@ class BluetoothReceiver : BroadcastReceiver() {
                 val sourceLabel = if (deviceName.isNotBlank()) "בלוטות' ($deviceName)" else "בלוטות' ברכב"
                 var wakeLock: PowerManager.WakeLock? = null
                 var attempt = 1
+                val maxAttempts = retryDelaysMs.size + 1
                 var executionTime = System.currentTimeMillis()
 
                 try {
+                    val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+                    wakeLock = powerManager?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "PointerCode:DisarmRetryWakeLock")
+                    wakeLock?.acquire(90_000L) // Safe auto-release
+
                     NotificationHelper.showDisarmingNotification(context, vNumber, deviceName)
 
-                    // Attempt 1
-                    var result = PointerApi.checkCode(vNumber, code, driverName)
+                    var result: PointerResult? = null
 
-                    // Check if failure is due to network / connectivity issues (e.g. edge of Wi-Fi / no cellular data yet)
-                    val isNetworkError = result is PointerResult.NetworkError ||
-                            (result is PointerResult.Failure && result.rc == -99)
+                    while (attempt <= maxAttempts) {
+                        executionTime = System.currentTimeMillis()
+                        prefs.setLastBtDisarmTime(executionTime)
 
-                    if (isNetworkError) {
-                        // Release PendingResult so BroadcastReceiver doesn't timeout / ANR during the 60s wait
+                        if (attempt > 1) {
+                            NotificationHelper.showDisarmingNotification(context, vNumber, "$deviceName (ניסיון $attempt/$maxAttempts)")
+                        }
+
+                        result = PointerApi.checkCode(vNumber, code, driverName)
+
+                        val isNetworkError = result is PointerResult.NetworkError ||
+                                (result is PointerResult.Failure && result.rc == -99)
+
+                        if (!isNetworkError || attempt == maxAttempts) {
+                            // If success, definitive server failure, or final attempt reached: exit loop
+                            break
+                        }
+
+                        // Release PendingResult so BroadcastReceiver doesn't timeout / ANR during subsequent delays
                         try {
                             pendingResult?.finish()
                         } catch (_: Exception) {}
 
-                        // Acquire temporary WakeLock to keep CPU awake during the 1-minute delay
-                        try {
-                            val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
-                            wakeLock = powerManager?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "PointerCode:DisarmRetryWakeLock")
-                            wakeLock?.acquire(85_000L) // Safe auto-release
-                        } catch (_: Exception) {}
+                        val delayMs = retryDelaysMs[attempt - 1]
+                        val delaySec = (delayMs / 1000).toInt()
 
-                        // Show intermediate notification informing that retry will occur in 1 minute
                         NotificationHelper.showRetryingNotification(
                             context = context,
                             vehicleNumber = vNumber,
                             deviceName = deviceName,
-                            statusText = "אין חיבור לאינטרנט • ניסיון שני יתבצע בעוד דקה..."
+                            statusText = "התקשורת עדיין לא הצליחה (ניסיון $attempt/$maxAttempts) • ניסיון נוסף בעוד $delaySec שניות..."
                         )
 
-                        // Wait 1 minute (60 seconds)
-                        delay(retryDelayMs)
+                        // Smart adaptive wait: Wait up to delayMs, but check if validated internet becomes available earlier
+                        val checkIntervalMs = 500L
+                        var elapsedMs = 0L
+                        while (elapsedMs < delayMs) {
+                            delay(checkIntervalMs)
+                            elapsedMs += checkIntervalMs
+                            if (elapsedMs >= 1500L && isNetworkConnected(context)) {
+                                // Active internet detected, proceed immediately!
+                                break
+                            }
+                        }
 
-                        // Attempt 2
-                        attempt = 2
-                        executionTime = System.currentTimeMillis()
-                        prefs.setLastBtDisarmTime(executionTime)
-                        NotificationHelper.showDisarmingNotification(context, vNumber, "$deviceName (ניסיון 2)")
-                        result = PointerApi.checkCode(vNumber, code, driverName)
+                        attempt++
                     }
 
-                    // Process final result (after 1st attempt if success/definitive failure, or after 2nd attempt)
-                    val finalSource = if (attempt == 2) "$sourceLabel (ניסיון 2)" else sourceLabel
+                    // Process final result
+                    val finalSource = if (attempt > 1) "$sourceLabel (ניסיון $attempt/$maxAttempts)" else sourceLabel
 
-                    when (result) {
+                    when (val finalResult = result) {
                         is PointerResult.Success -> {
                             prefs.addDisarmHistory(
                                 DisarmHistoryEntry(
                                     timestamp = executionTime,
                                     source = finalSource,
                                     success = true,
-                                    message = result.message
+                                    message = finalResult.message
                                 )
                             )
-                            NotificationHelper.showSuccessNotification(context, vNumber, result.message)
+                            NotificationHelper.showSuccessNotification(context, vNumber, finalResult.message)
                             NotificationHelper.triggerHaptic(context)
                         }
                         is PointerResult.Failure -> {
+                            val failureMsg = if (finalResult.rc == -99) {
+                                "התקשורת לא הצליחה לאחר $maxAttempts ניסיונות (בעיית קליטה ברכב)"
+                            } else {
+                                finalResult.message
+                            }
                             prefs.addDisarmHistory(
                                 DisarmHistoryEntry(
                                     timestamp = executionTime,
                                     source = finalSource,
                                     success = false,
-                                    message = result.message
+                                    message = failureMsg
                                 )
                             )
-                            NotificationHelper.showErrorNotification(context, vNumber, result.message)
+                            NotificationHelper.showErrorNotification(context, vNumber, failureMsg)
                         }
                         is PointerResult.NetworkError -> {
+                            val errorMsg = "התקשורת לא הצליחה לאחר $maxAttempts ניסיונות (${finalResult.errorMsg})"
                             prefs.addDisarmHistory(
                                 DisarmHistoryEntry(
                                     timestamp = executionTime,
                                     source = finalSource,
                                     success = false,
-                                    message = result.errorMsg
+                                    message = errorMsg
                                 )
                             )
-                            NotificationHelper.showErrorNotification(context, vNumber, result.errorMsg)
+                            NotificationHelper.showErrorNotification(context, vNumber, errorMsg)
                         }
+                        null -> {}
                     }
                 } catch (t: Throwable) {
                     val errorMsg = "שגיאה: ${t.localizedMessage ?: "שגיאה לא ידועה"}"
                     val now = System.currentTimeMillis()
-                    val finalSource = if (attempt == 2) "$sourceLabel (ניסיון 2)" else sourceLabel
+                    val finalSource = if (attempt > 1) "$sourceLabel (ניסיון $attempt/$maxAttempts)" else sourceLabel
                     prefs.addDisarmHistory(
                         DisarmHistoryEntry(
                             timestamp = now,
