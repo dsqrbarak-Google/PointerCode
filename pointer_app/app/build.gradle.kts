@@ -11,8 +11,8 @@ android {
         applicationId = "com.example.pointercode"
         minSdk = 24
         targetSdk = 36
-        versionCode = 5
-        versionName = "1.3.2"
+        versionCode = 6
+        versionName = "1.3.3"
     }
 
     buildTypes {
@@ -80,6 +80,7 @@ dependencies {
 
   // Android Auto / Car App Library
   implementation(libs.androidx.car.app)
+  implementation("androidx.media:media:1.7.0")
 
   // Navigation
   implementation(libs.androidx.navigation3.ui)

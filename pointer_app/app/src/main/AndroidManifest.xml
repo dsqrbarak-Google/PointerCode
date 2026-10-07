@@ -62,6 +62,17 @@
             android:name="androidx.car.app.minCarApiLevel"
             android:value="1" />
 
+        <!-- Android Auto Media Browser Service (Guaranteed to show on car screen with Unknown Sources) -->
+        <service
+            android:name=".car.PointerMediaBrowserService"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:icon="@mipmap/ic_launcher">
+            <intent-filter>
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
+
         <!-- Android Auto CarAppService -->
         <service
             android:name=".car.PointerCarAppService"
