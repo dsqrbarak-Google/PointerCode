@@ -56,28 +56,45 @@ class BluetoothReceiver : BroadcastReceiver() {
 
         val deviceAddress = try { rawDevice.address } catch (_: SecurityException) { null }
         val deviceName = try { rawDevice.name } catch (_: SecurityException) { null }
+        val deviceAlias = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try { rawDevice.alias } catch (_: SecurityException) { null }
+        } else null
+        val resolvedDeviceName = deviceAlias ?: deviceName
 
         val addressMatches = !deviceAddress.isNullOrBlank() &&
                 targetAddress.isNotBlank() &&
                 deviceAddress.equals(targetAddress, ignoreCase = true)
 
-        val nameMatches = !deviceName.isNullOrBlank() &&
+        val nameMatches = !resolvedDeviceName.isNullOrBlank() &&
                 targetName.isNotBlank() &&
-                deviceName.equals(targetName, ignoreCase = true)
+                (resolvedDeviceName.equals(targetName, ignoreCase = true) ||
+                 resolvedDeviceName.contains(targetName, ignoreCase = true) ||
+                 targetName.contains(resolvedDeviceName, ignoreCase = true))
 
         if (!addressMatches && !nameMatches) {
             return
         }
 
-        // Prevent duplicate disarms if multiple Bluetooth profiles connect in close succession
+        // Prevent duplicate disarms across all profiles and sources
         val now = System.currentTimeMillis()
-        val lastTime = prefs.getLastBtDisarmTime()
-        if (now - lastTime < DEBOUNCE_MS) {
+        val lastBtTime = prefs.getLastBtDisarmTime()
+        val lastDisarmTime = prefs.getLastDisarmTime()
+        val latestHistory = prefs.getDisarmHistory().firstOrNull()
+        val twoMinutesMs = 2 * 60 * 1000L
+
+        // Debounce if BT already triggered within 60 seconds
+        if (now - lastBtTime < DEBOUNCE_MS) {
             return
         }
+
+        // Suppress if the vehicle was already successfully disarmed in the last 2 minutes (e.g. via shortcut, app, or widget)
+        if (lastDisarmTime > 0 && (now - lastDisarmTime) < twoMinutesMs && latestHistory?.success == true) {
+            return
+        }
+
         prefs.setLastBtDisarmTime(now)
 
-        val resolvedName = deviceName ?: targetName
+        val resolvedName = resolvedDeviceName ?: targetName
         executeDisarm(context, prefs, resolvedName, goAsync())
     }
 

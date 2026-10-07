@@ -12,20 +12,12 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import androidx.core.app.Person
 import com.example.pointercode.MainActivity
 import com.example.pointercode.R
 
 object NotificationHelper {
     private const val CHANNEL_ID = "pointer_bt_channel"
     private const val NOTIFICATION_ID = 4040
-
-    private val pointerPerson: Person by lazy {
-        Person.Builder()
-            .setName("4S פוינטר")
-            .setKey("pointer_bot")
-            .build()
-    }
 
     fun createNotificationChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -74,16 +66,12 @@ object NotificationHelper {
         val title = "מנטרל קודן רכב $formattedVehicle..."
         val text = if (deviceName.isNotBlank()) "זוהה חיבור ל-$deviceName • שולח קוד לפוינטר" else "שולח קוד לפוינטר..."
 
-        val messagingStyle = NotificationCompat.MessagingStyle(pointerPerson)
-            .setConversationTitle("4S Pointer Code")
-            .addMessage(text, System.currentTimeMillis(), pointerPerson)
-
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_tarsier)
             .setContentTitle(title)
             .setContentText(text)
-            .setStyle(messagingStyle)
-            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(getPendingIntent(context))
@@ -113,16 +101,14 @@ object NotificationHelper {
             getRetryPendingIntent(context)
         ).build()
 
-        val messagingStyle = NotificationCompat.MessagingStyle(pointerPerson)
-            .setConversationTitle("4S Pointer Code")
-            .addMessage("רכב $formattedVehicle: $statusText", System.currentTimeMillis(), pointerPerson)
+        val fullText = "רכב $formattedVehicle: $statusText"
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_tarsier)
             .setContentTitle(title)
             .setContentText(statusText)
-            .setStyle(messagingStyle)
-            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(fullText))
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(getPendingIntent(context))
@@ -145,16 +131,12 @@ object NotificationHelper {
 
         val defaultSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
 
-        val messagingStyle = NotificationCompat.MessagingStyle(pointerPerson)
-            .setConversationTitle("4S Pointer Code")
-            .addMessage(text, System.currentTimeMillis(), pointerPerson)
-
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_tarsier)
             .setContentTitle(title)
             .setContentText(text)
-            .setStyle(messagingStyle)
-            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setSound(defaultSoundUri)
             .setVibrate(longArrayOf(0, 150, 100, 250))
@@ -181,16 +163,12 @@ object NotificationHelper {
             getRetryPendingIntent(context)
         ).build()
 
-        val messagingStyle = NotificationCompat.MessagingStyle(pointerPerson)
-            .setConversationTitle("4S Pointer Code")
-            .addMessage(text, System.currentTimeMillis(), pointerPerson)
-
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_tarsier)
             .setContentTitle(title)
             .setContentText(text)
-            .setStyle(messagingStyle)
-            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(getPendingIntent(context))

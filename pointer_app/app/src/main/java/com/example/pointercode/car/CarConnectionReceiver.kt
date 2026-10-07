@@ -25,9 +25,9 @@ class CarConnectionReceiver : BroadcastReceiver() {
             null
         }
 
-        if (connectionType == CarConnection.CONNECTION_TYPE_PROJECTION || connectionType == null) {
+        if (connectionType == CarConnection.CONNECTION_TYPE_PROJECTION || connectionType == CarConnection.CONNECTION_TYPE_NATIVE) {
             val now = System.currentTimeMillis()
-            val lastTime = prefs.getLastBtDisarmTime()
+            val lastTime = prefs.getLastDisarmTime()
             val elapsed = now - lastTime
             val twoMinutesMs = 2 * 60 * 1000L
 

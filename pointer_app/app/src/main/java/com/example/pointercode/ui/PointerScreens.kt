@@ -101,7 +101,7 @@ val PointerRed = Color(0xFFE44126)
 val PointerDark = Color(0xFF212121)
 val PlateYellow = Color(0xFFFFD600)
 val SuccessGreen = Color(0xFF2E7D32)
-const val APP_VERSION = "1.3.1"
+const val APP_VERSION = "1.3.2"
 
 @Composable
 fun PointerMainScreen(
