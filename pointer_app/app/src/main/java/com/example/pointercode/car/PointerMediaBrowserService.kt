@@ -34,6 +34,9 @@ class PointerMediaBrowserService : MediaBrowserServiceCompat() {
 
     companion object {
         const val ROOT_ID = "root_pointer"
+        const val CATEGORY_ACTIONS = "cat_actions"
+        const val CATEGORY_HISTORY = "cat_history"
+
         const val MEDIA_ID_DISARM_NOW = "action_disarm_now"
         const val MEDIA_ID_RETRY = "action_retry"
         const val MEDIA_ID_STATUS = "status_info"
@@ -55,23 +58,28 @@ class PointerMediaBrowserService : MediaBrowserServiceCompat() {
                 }
 
                 override fun onPlayFromMediaId(mediaId: String?, extras: Bundle?) {
-                    when (mediaId) {
-                        MEDIA_ID_DISARM_NOW, MEDIA_ID_RETRY, MEDIA_ID_STATUS -> {
-                            handleDisarmAction("מסך הרכב (Android Auto)")
-                        }
-                        else -> {
-                            handleDisarmAction("מסך הרכב (Android Auto)")
-                        }
-                    }
+                    handleDisarmAction("מסך הרכב (Android Auto)")
+                }
+
+                override fun onPlayFromSearch(query: String?, extras: Bundle?) {
+                    handleDisarmAction("מסך הרכב (חיפוש קולי)")
                 }
 
                 override fun onCustomAction(action: String?, extras: Bundle?) {
                     handleDisarmAction("מסך הרכב (פעולה)")
                 }
+
+                override fun onSkipToNext() {
+                    handleDisarmAction("מסך הרכב (הבא)")
+                }
+
+                override fun onSkipToPrevious() {
+                    handleDisarmAction("מסך הרכב (הקודם)")
+                }
             })
 
-            // Set initial state
-            updatePlaybackState(PlaybackStateCompat.STATE_PAUSED, "קודן מוכן לניטרול")
+            // Set initial state without any error message!
+            updatePlaybackState(PlaybackStateCompat.STATE_PAUSED, "קודן מוכן לנטרול")
             isActive = true
         }
 
@@ -83,7 +91,12 @@ class PointerMediaBrowserService : MediaBrowserServiceCompat() {
         clientUid: Int,
         rootHints: Bundle?
     ): BrowserRoot {
-        return BrowserRoot(ROOT_ID, null)
+        val extras = Bundle().apply {
+            // Tell Android Auto to render as clean list items
+            putInt("android.media.browse.CONTENT_STYLE_BROWSABLE_HINT", 1) // LIST_ITEM
+            putInt("android.media.browse.CONTENT_STYLE_PLAYABLE_HINT", 1) // LIST_ITEM
+        }
+        return BrowserRoot(ROOT_ID, extras)
     }
 
     override fun onLoadChildren(
@@ -97,37 +110,103 @@ class PointerMediaBrowserService : MediaBrowserServiceCompat() {
         val history = prefs.getDisarmHistory()
         val latest = history.firstOrNull()
 
-        // 1. Primary Action: Disarm Now
-        val disarmDesc = MediaDescriptionCompat.Builder()
-            .setMediaId(MEDIA_ID_DISARM_NOW)
-            .setTitle("🚗 נטרל קודן כעת ($formattedPlate)")
-            .setSubtitle(if (driverName.isNotBlank()) "נהג: $driverName • לחץ לשליחה מיידית" else "לחץ לניטרול הקודן ברכב")
-            .setIconUri(Uri.parse("android.resource://$packageName/${R.drawable.ic_tarsier}"))
-            .build()
-        items.add(MediaBrowserCompat.MediaItem(disarmDesc, MediaBrowserCompat.MediaItem.FLAG_PLAYABLE))
+        when (parentId) {
+            ROOT_ID -> {
+                // Android Auto REQUIRES root children to be FLAG_BROWSABLE to build its navigation tabs/categories!
+                // 1. Actions Category
+                val actionsDesc = MediaDescriptionCompat.Builder()
+                    .setMediaId(CATEGORY_ACTIONS)
+                    .setTitle("🚗 נטרול קודן ($formattedPlate)")
+                    .setSubtitle(if (driverName.isNotBlank()) "נהג: $driverName • לחץ לפתיחה או נטרול" else "לחץ לנטרול הקודן ברכב")
+                    .build()
+                items.add(
+                    MediaBrowserCompat.MediaItem(
+                        actionsDesc,
+                        MediaBrowserCompat.MediaItem.FLAG_BROWSABLE or MediaBrowserCompat.MediaItem.FLAG_PLAYABLE
+                    )
+                )
 
-        // 2. Status Row
-        val statusTitle = when {
-            latest?.success == true -> "✅ נוטרל בהצלחה: ${latest.message}"
-            latest?.success == false -> "⚠️ שגיאה: ${latest.message}"
-            else -> "ℹ️ קודן מוכן לשליחה"
+                // 2. History & Status Category
+                val statusPreview = when {
+                    latest?.success == true -> "נוטרל בהצלחה (${latest.message})"
+                    latest?.success == false -> "שגיאה: ${latest.message}"
+                    else -> "מוכן לשליחה"
+                }
+                val historyDesc = MediaDescriptionCompat.Builder()
+                    .setMediaId(CATEGORY_HISTORY)
+                    .setTitle("📋 היסטוריה וסטטוס")
+                    .setSubtitle(statusPreview)
+                    .build()
+                items.add(
+                    MediaBrowserCompat.MediaItem(
+                        historyDesc,
+                        MediaBrowserCompat.MediaItem.FLAG_BROWSABLE
+                    )
+                )
+            }
+
+            CATEGORY_ACTIONS -> {
+                // Action Items inside the primary category (FLAG_PLAYABLE)
+                // 1. Primary Action: Disarm Now
+                val disarmDesc = MediaDescriptionCompat.Builder()
+                    .setMediaId(MEDIA_ID_DISARM_NOW)
+                    .setTitle("🚗 לחץ לנטרול קודן כעת ($formattedPlate)")
+                    .setSubtitle(if (driverName.isNotBlank()) "נהג: $driverName • שלח קוד פוינטר" else "שלח קוד פוינטר מיידית")
+                    .build()
+                items.add(MediaBrowserCompat.MediaItem(disarmDesc, MediaBrowserCompat.MediaItem.FLAG_PLAYABLE))
+
+                // 2. Quick Retry / Re-send
+                val retryDesc = MediaDescriptionCompat.Builder()
+                    .setMediaId(MEDIA_ID_RETRY)
+                    .setTitle("🔄 שלח קוד שוב")
+                    .setSubtitle("שליחה יזומה נוספת לפוינטר")
+                    .build()
+                items.add(MediaBrowserCompat.MediaItem(retryDesc, MediaBrowserCompat.MediaItem.FLAG_PLAYABLE))
+
+                // 3. Status Row
+                val statusTitle = when {
+                    latest?.success == true -> "✅ נוטרל בהצלחה: ${latest.message}"
+                    latest?.success == false -> "⚠️ שגיאה: ${latest.message}"
+                    else -> "ℹ️ קודן מוכן לשליחה"
+                }
+                val statusDesc = MediaDescriptionCompat.Builder()
+                    .setMediaId(MEDIA_ID_STATUS)
+                    .setTitle(statusTitle)
+                    .setSubtitle("לחץ לבדיקה ונטרול חוזר")
+                    .build()
+                items.add(MediaBrowserCompat.MediaItem(statusDesc, MediaBrowserCompat.MediaItem.FLAG_PLAYABLE))
+            }
+
+            CATEGORY_HISTORY -> {
+                if (history.isEmpty()) {
+                    val emptyDesc = MediaDescriptionCompat.Builder()
+                        .setMediaId(MEDIA_ID_STATUS)
+                        .setTitle("ℹ️ אין היסטוריית פעולות עדיין")
+                        .setSubtitle("לחץ לנטרול ראשוני")
+                        .build()
+                    items.add(MediaBrowserCompat.MediaItem(emptyDesc, MediaBrowserCompat.MediaItem.FLAG_PLAYABLE))
+                } else {
+                    history.take(6).forEachIndexed { idx, entry ->
+                        val hDesc = MediaDescriptionCompat.Builder()
+                            .setMediaId("history_$idx")
+                            .setTitle("${if (entry.success) "✅" else "⚠️"} ${entry.message}")
+                            .setSubtitle("${entry.source} • ${formatTimestamp(entry.timestamp)}")
+                            .build()
+                        items.add(MediaBrowserCompat.MediaItem(hDesc, MediaBrowserCompat.MediaItem.FLAG_PLAYABLE))
+                    }
+                }
+            }
+
+            else -> {
+                // Fallback for any other parent: provide the disarm action
+                val disarmDesc = MediaDescriptionCompat.Builder()
+                    .setMediaId(MEDIA_ID_DISARM_NOW)
+                    .setTitle("🚗 נטרל קודן כעת ($formattedPlate)")
+                    .setSubtitle("לחץ לנטרול הקודן ברכב")
+                    .build()
+                items.add(MediaBrowserCompat.MediaItem(disarmDesc, MediaBrowserCompat.MediaItem.FLAG_PLAYABLE))
+            }
         }
-        val statusDesc = MediaDescriptionCompat.Builder()
-            .setMediaId(MEDIA_ID_STATUS)
-            .setTitle(statusTitle)
-            .setSubtitle("לחץ לבדיקה וניטרול חוזר")
-            .setIconUri(Uri.parse("android.resource://$packageName/${R.drawable.ic_tarsier}"))
-            .build()
-        items.add(MediaBrowserCompat.MediaItem(statusDesc, MediaBrowserCompat.MediaItem.FLAG_PLAYABLE))
-
-        // 3. Quick Retry / Re-send
-        val retryDesc = MediaDescriptionCompat.Builder()
-            .setMediaId(MEDIA_ID_RETRY)
-            .setTitle("🔄 שלח קוד שוב")
-            .setSubtitle("שליחה יזומה נוספת לפוינטר")
-            .setIconUri(Uri.parse("android.resource://$packageName/${R.drawable.ic_tarsier}"))
-            .build()
-        items.add(MediaBrowserCompat.MediaItem(retryDesc, MediaBrowserCompat.MediaItem.FLAG_PLAYABLE))
 
         result.sendResult(items)
     }
@@ -161,6 +240,12 @@ class PointerMediaBrowserService : MediaBrowserServiceCompat() {
                         )
                         updatePlaybackState(PlaybackStateCompat.STATE_PLAYING, "נוטרל בהצלחה! ${result.message}")
                         playSuccessTone()
+
+                        // After 2.5 seconds, reset state to PAUSED so car radio audio isn't hijacked
+                        CoroutineScope(Dispatchers.Main).launch {
+                            kotlinx.coroutines.delay(2500)
+                            updatePlaybackState(PlaybackStateCompat.STATE_PAUSED, "נוטרל: ${result.message}")
+                        }
                     }
                     is PointerResult.Failure -> {
                         prefs.addDisarmHistory(
@@ -187,6 +272,8 @@ class PointerMediaBrowserService : MediaBrowserServiceCompat() {
                 }
                 // Refresh list on car screen
                 notifyChildrenChanged(ROOT_ID)
+                notifyChildrenChanged(CATEGORY_ACTIONS)
+                notifyChildrenChanged(CATEGORY_HISTORY)
             }
         }
     }
@@ -196,12 +283,18 @@ class PointerMediaBrowserService : MediaBrowserServiceCompat() {
             .setActions(
                 PlaybackStateCompat.ACTION_PLAY or
                         PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID or
-                        PlaybackStateCompat.ACTION_PLAY_PAUSE
+                        PlaybackStateCompat.ACTION_PLAY_PAUSE or
+                        PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
+                        PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
             )
             .setState(state, PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN, 1.0f)
-            .setErrorMessage(PlaybackStateCompat.ERROR_CODE_APP_ERROR, statusText)
-            .build()
-        mediaSession.setPlaybackState(playbackState)
+
+        // ONLY set error message when state is actually STATE_ERROR
+        if (state == PlaybackStateCompat.STATE_ERROR) {
+            playbackState.setErrorMessage(PlaybackStateCompat.ERROR_CODE_APP_ERROR, statusText)
+        }
+
+        mediaSession.setPlaybackState(playbackState.build())
 
         val metadata = MediaMetadataCompat.Builder()
             .putString(MediaMetadataCompat.METADATA_KEY_TITLE, "4S Pointer Code")
@@ -226,6 +319,11 @@ class PointerMediaBrowserService : MediaBrowserServiceCompat() {
             8 -> "${digits.substring(0, 3)}-${digits.substring(3, 5)}-${digits.substring(5, 8)}"
             else -> digits
         }
+    }
+
+    private fun formatTimestamp(timestamp: Long): String {
+        val sdf = java.text.SimpleDateFormat("dd/MM HH:mm", java.util.Locale.getDefault())
+        return sdf.format(java.util.Date(timestamp))
     }
 
     override fun onDestroy() {
