@@ -348,7 +348,7 @@ class PointerViewModel(
                 val pinShortcutInfo = ShortcutInfo.Builder(context, "shortcut_quick_disarm")
                     .setShortLabel("נטרל פוינטר")
                     .setLongLabel("נטרל קודן פוינטר לרכב")
-                    .setIcon(Icon.createWithResource(context, R.drawable.ic_tarsier))
+                    .setIcon(Icon.createWithResource(context, R.mipmap.ic_launcher))
                     .setIntent(intent)
                     .build()
 

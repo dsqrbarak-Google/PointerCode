@@ -67,7 +67,7 @@ object NotificationHelper {
         val text = if (deviceName.isNotBlank()) "זוהה חיבור ל-$deviceName • שולח קוד לפוינטר" else "שולח קוד לפוינטר..."
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_tarsier)
+            .setSmallIcon(R.drawable.ic_stat_pointer)
             .setContentTitle(title)
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
@@ -80,8 +80,8 @@ object NotificationHelper {
 
         try {
             NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
-        } catch (_: SecurityException) {
-            // Permission POST_NOTIFICATIONS may not be granted
+        } catch (_: Throwable) {
+            // Never crash if notifications fail or cannot be posted
         }
     }
 
@@ -96,7 +96,7 @@ object NotificationHelper {
         val title = "⚠️ התקשורת ברכב עדיין לא הצליחה"
 
         val retryAction = NotificationCompat.Action.Builder(
-            R.drawable.ic_tarsier,
+            R.drawable.ic_stat_pointer,
             "נסה שוב כעת",
             getRetryPendingIntent(context)
         ).build()
@@ -104,7 +104,7 @@ object NotificationHelper {
         val fullText = "רכב $formattedVehicle: $statusText"
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_tarsier)
+            .setSmallIcon(R.drawable.ic_stat_pointer)
             .setContentTitle(title)
             .setContentText(statusText)
             .setStyle(NotificationCompat.BigTextStyle().bigText(fullText))
@@ -118,8 +118,8 @@ object NotificationHelper {
 
         try {
             NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
-        } catch (_: SecurityException) {
-            // Permission POST_NOTIFICATIONS may not be granted
+        } catch (_: Throwable) {
+            // Never crash if notifications fail
         }
     }
 
@@ -132,7 +132,7 @@ object NotificationHelper {
         val defaultSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_tarsier)
+            .setSmallIcon(R.drawable.ic_stat_pointer)
             .setContentTitle(title)
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
@@ -146,8 +146,8 @@ object NotificationHelper {
 
         try {
             NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
-        } catch (_: SecurityException) {
-            // Permission POST_NOTIFICATIONS may not be granted
+        } catch (_: Throwable) {
+            // Never crash if notifications fail
         }
     }
 
@@ -158,13 +158,13 @@ object NotificationHelper {
         val text = "רכב $formattedVehicle: $errorMsg. לחץ לניסיון חוזר או פתח ב-Android Auto."
 
         val retryAction = NotificationCompat.Action.Builder(
-            R.drawable.ic_tarsier,
+            R.drawable.ic_stat_pointer,
             "נסה שוב כעת",
             getRetryPendingIntent(context)
         ).build()
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_tarsier)
+            .setSmallIcon(R.drawable.ic_stat_pointer)
             .setContentTitle(title)
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
@@ -177,8 +177,8 @@ object NotificationHelper {
 
         try {
             NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
-        } catch (_: SecurityException) {
-            // Permission POST_NOTIFICATIONS may not be granted
+        } catch (_: Throwable) {
+            // Never crash if notifications fail
         }
     }
 

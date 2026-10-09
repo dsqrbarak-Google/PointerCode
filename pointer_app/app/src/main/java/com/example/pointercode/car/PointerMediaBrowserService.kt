@@ -1,22 +1,14 @@
 package com.example.pointercode.car
 
-import android.app.Notification
 import android.content.Intent
-import android.content.pm.ServiceInfo
 import android.media.RingtoneManager
-import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.support.v4.media.MediaBrowserCompat
 import android.support.v4.media.MediaDescriptionCompat
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
-import androidx.core.app.NotificationCompat
-import androidx.core.app.ServiceCompat
 import androidx.media.MediaBrowserServiceCompat
-import com.example.pointercode.R
-import com.example.pointercode.bluetooth.NotificationHelper
 import com.example.pointercode.data.DisarmHistoryEntry
 import com.example.pointercode.data.PointerApi
 import com.example.pointercode.data.PointerPreferences
@@ -46,8 +38,6 @@ class PointerMediaBrowserService : MediaBrowserServiceCompat() {
         const val MEDIA_ID_DISARM_NOW = "action_disarm_now"
         const val MEDIA_ID_RETRY = "action_retry"
         const val MEDIA_ID_STATUS = "status_info"
-
-        private const val MEDIA_NOTIFICATION_ID = 5050
     }
 
     override fun onCreate() {
@@ -92,13 +82,10 @@ class PointerMediaBrowserService : MediaBrowserServiceCompat() {
         }
 
         sessionToken = mediaSession.sessionToken
-
-        // Keep service alive and Android 14+ compliant via foreground service
-        startInForeground("קודן מוכן לנטרול")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        return START_STICKY
+        return START_NOT_STICKY
     }
 
     override fun onGetRoot(
@@ -322,35 +309,6 @@ class PointerMediaBrowserService : MediaBrowserServiceCompat() {
         mediaSession.setMetadata(metadata)
     }
 
-    private fun startInForeground(statusText: String) {
-        try {
-            NotificationHelper.createNotificationChannel(this)
-            val notification = NotificationCompat.Builder(this, "pointer_bt_channel")
-                .setSmallIcon(R.drawable.ic_launcher_foreground)
-                .setContentTitle("4S Pointer Code")
-                .setContentText(statusText)
-                .setSubText("רכב ${formatVehicleNumber(prefs.getVehicleNumber())}")
-                .setStyle(
-                    androidx.media.app.NotificationCompat.MediaStyle()
-                        .setMediaSession(mediaSession.sessionToken)
-                )
-                .setPriority(NotificationCompat.PRIORITY_LOW)
-                .setOngoing(true)
-                .build()
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                ServiceCompat.startForeground(
-                    this,
-                    MEDIA_NOTIFICATION_ID,
-                    notification,
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
-                )
-            } else {
-                startForeground(MEDIA_NOTIFICATION_ID, notification)
-            }
-        } catch (_: Exception) {}
-    }
-
     private fun playSuccessTone() {
         try {
             val notificationUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
@@ -374,9 +332,6 @@ class PointerMediaBrowserService : MediaBrowserServiceCompat() {
     }
 
     override fun onDestroy() {
-        try {
-            stopForeground(STOP_FOREGROUND_REMOVE)
-        } catch (_: Exception) {}
         mediaSession.release()
         super.onDestroy()
     }

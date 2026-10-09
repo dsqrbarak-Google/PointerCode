@@ -82,8 +82,9 @@ class BluetoothReceiver : BroadcastReceiver() {
         val latestHistory = prefs.getDisarmHistory().firstOrNull()
         val twoMinutesMs = 2 * 60 * 1000L
 
-        // Debounce if BT already triggered within 60 seconds
-        if (now - lastBtTime < DEBOUNCE_MS) {
+        // Debounce simultaneous firing across multiple profiles within 4 seconds,
+        // or suppress within 60 seconds if already successfully disarmed
+        if ((now - lastBtTime < 4_000L) || (latestHistory?.success == true && (now - lastBtTime < DEBOUNCE_MS))) {
             return
         }
 
