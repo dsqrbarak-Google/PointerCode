@@ -1,16 +1,22 @@
 package com.example.pointercode.car
 
-import android.content.Context
+import android.app.Notification
+import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.media.RingtoneManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.support.v4.media.MediaBrowserCompat
 import android.support.v4.media.MediaDescriptionCompat
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
+import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
 import androidx.media.MediaBrowserServiceCompat
 import com.example.pointercode.R
+import com.example.pointercode.bluetooth.NotificationHelper
 import com.example.pointercode.data.DisarmHistoryEntry
 import com.example.pointercode.data.PointerApi
 import com.example.pointercode.data.PointerPreferences
@@ -40,6 +46,8 @@ class PointerMediaBrowserService : MediaBrowserServiceCompat() {
         const val MEDIA_ID_DISARM_NOW = "action_disarm_now"
         const val MEDIA_ID_RETRY = "action_retry"
         const val MEDIA_ID_STATUS = "status_info"
+
+        private const val MEDIA_NOTIFICATION_ID = 5050
     }
 
     override fun onCreate() {
@@ -84,6 +92,13 @@ class PointerMediaBrowserService : MediaBrowserServiceCompat() {
         }
 
         sessionToken = mediaSession.sessionToken
+
+        // Keep service alive and Android 14+ compliant via foreground service
+        startInForeground("קודן מוכן לנטרול")
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        return START_STICKY
     }
 
     override fun onGetRoot(
@@ -91,12 +106,7 @@ class PointerMediaBrowserService : MediaBrowserServiceCompat() {
         clientUid: Int,
         rootHints: Bundle?
     ): BrowserRoot {
-        val extras = Bundle().apply {
-            // Tell Android Auto to render as clean list items
-            putInt("android.media.browse.CONTENT_STYLE_BROWSABLE_HINT", 1) // LIST_ITEM
-            putInt("android.media.browse.CONTENT_STYLE_PLAYABLE_HINT", 1) // LIST_ITEM
-        }
-        return BrowserRoot(ROOT_ID, extras)
+        return BrowserRoot(ROOT_ID, null)
     }
 
     override fun onLoadChildren(
@@ -112,7 +122,7 @@ class PointerMediaBrowserService : MediaBrowserServiceCompat() {
 
         when (parentId) {
             ROOT_ID -> {
-                // Android Auto REQUIRES root children to be FLAG_BROWSABLE to build its navigation tabs/categories!
+                // Android Auto REQUIRES root children to be PURELY FLAG_BROWSABLE to build its navigation tabs/categories!
                 // 1. Actions Category
                 val actionsDesc = MediaDescriptionCompat.Builder()
                     .setMediaId(CATEGORY_ACTIONS)
@@ -122,7 +132,7 @@ class PointerMediaBrowserService : MediaBrowserServiceCompat() {
                 items.add(
                     MediaBrowserCompat.MediaItem(
                         actionsDesc,
-                        MediaBrowserCompat.MediaItem.FLAG_BROWSABLE or MediaBrowserCompat.MediaItem.FLAG_PLAYABLE
+                        MediaBrowserCompat.MediaItem.FLAG_BROWSABLE
                     )
                 )
 
@@ -198,7 +208,7 @@ class PointerMediaBrowserService : MediaBrowserServiceCompat() {
             }
 
             else -> {
-                // Fallback for any other parent: provide the disarm action
+                // Fallback for any other parent: provide the disarm action so UI never hangs
                 val disarmDesc = MediaDescriptionCompat.Builder()
                     .setMediaId(MEDIA_ID_DISARM_NOW)
                     .setTitle("🚗 נטרל קודן כעת ($formattedPlate)")
@@ -209,6 +219,14 @@ class PointerMediaBrowserService : MediaBrowserServiceCompat() {
         }
 
         result.sendResult(items)
+    }
+
+    override fun onLoadChildren(
+        parentId: String,
+        result: Result<List<MediaBrowserCompat.MediaItem>>,
+        options: Bundle
+    ) {
+        onLoadChildren(parentId, result)
     }
 
     private fun handleDisarmAction(source: String) {
@@ -304,6 +322,35 @@ class PointerMediaBrowserService : MediaBrowserServiceCompat() {
         mediaSession.setMetadata(metadata)
     }
 
+    private fun startInForeground(statusText: String) {
+        try {
+            NotificationHelper.createNotificationChannel(this)
+            val notification = NotificationCompat.Builder(this, "pointer_bt_channel")
+                .setSmallIcon(R.drawable.ic_launcher_foreground)
+                .setContentTitle("4S Pointer Code")
+                .setContentText(statusText)
+                .setSubText("רכב ${formatVehicleNumber(prefs.getVehicleNumber())}")
+                .setStyle(
+                    androidx.media.app.NotificationCompat.MediaStyle()
+                        .setMediaSession(mediaSession.sessionToken)
+                )
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setOngoing(true)
+                .build()
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                ServiceCompat.startForeground(
+                    this,
+                    MEDIA_NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+                )
+            } else {
+                startForeground(MEDIA_NOTIFICATION_ID, notification)
+            }
+        } catch (_: Exception) {}
+    }
+
     private fun playSuccessTone() {
         try {
             val notificationUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
@@ -327,6 +374,9 @@ class PointerMediaBrowserService : MediaBrowserServiceCompat() {
     }
 
     override fun onDestroy() {
+        try {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } catch (_: Exception) {}
         mediaSession.release()
         super.onDestroy()
     }
