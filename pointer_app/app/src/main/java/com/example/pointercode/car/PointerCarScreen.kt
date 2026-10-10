@@ -10,53 +10,38 @@ import androidx.car.app.model.Pane
 import androidx.car.app.model.PaneTemplate
 import androidx.car.app.model.Row
 import androidx.car.app.model.Template
-import com.example.pointercode.bluetooth.BluetoothReceiver
-import com.example.pointercode.data.DisarmHistoryEntry
-import com.example.pointercode.data.PointerApi
+import com.example.pointercode.data.DisarmManager
 import com.example.pointercode.data.PointerPreferences
 import com.example.pointercode.data.PointerResult
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 /**
  * Android Auto Screen providing in-car control and real-time status of vehicle code disarming.
+ * Guaranteed to display immediately without an empty loading spinner or frozen hourglass.
  */
 class PointerCarScreen(carContext: CarContext) : Screen(carContext) {
 
     private val prefs = PointerPreferences(carContext)
-    private var isLoading: Boolean = false
+    private var isDisarming: Boolean = false
     private var statusMessage: String? = null
     private var isSuccess: Boolean = false
-    private var isNetworkError: Boolean = false
+    private var isError: Boolean = false
 
     init {
-        // When screen is created in Android Auto:
-        // Check if car was already disarmed recently. If not, trigger disarm!
+        // Read recent disarm state from history
+        val latest = prefs.getDisarmHistory().firstOrNull()
         val lastTime = prefs.getLastDisarmTime()
-        val elapsed = System.currentTimeMillis() - lastTime
-        val twoMinutesMs = 2 * 60 * 1000L
-        val history = prefs.getDisarmHistory()
-        val latest = history.firstOrNull()
+        val elapsedMinutes = if (lastTime > 0) (System.currentTimeMillis() - lastTime) / 60000L else 999L
 
-        if (prefs.isConfigured()) {
-            if (lastTime > 0 && elapsed < twoMinutesMs && latest?.success == true) {
-                // Already disarmed recently
-                statusMessage = "קודן נוטרל בהצלחה (${latest.message})"
-                isSuccess = true
-                isNetworkError = false
-            } else {
-                // Auto-disarm on Android Auto start
-                performDisarm(source = "Android Auto")
-            }
-        } else {
-            statusMessage = "נדרשת הגדרה ראשונית בטלפון"
+        if (latest?.success == true && elapsedMinutes < 15) {
+            isSuccess = true
+            isError = false
+            statusMessage = "קודן נוטרל בהצלחה (${latest.message}) • לפני $elapsedMinutes דק'"
+        } else if (latest?.success == false && elapsedMinutes < 5) {
             isSuccess = false
-            isNetworkError = false
+            isError = true
+            statusMessage = "שגיאה קודמת: ${latest.message}"
+        } else {
+            statusMessage = "קודן מוכן לנטרול"
         }
     }
 
@@ -77,14 +62,9 @@ class PointerCarScreen(carContext: CarContext) : Screen(carContext) {
         val formattedPlate = formatVehicleNumber(vNumber)
         val driverName = prefs.getDriverName()
 
-        if (isLoading) {
-            paneBuilder.setLoading(true)
-            return buildPaneTemplate(paneBuilder.build(), "מנטרל קודן רכב $formattedPlate...")
-        }
-
-        // Vehicle info row
+        // 1. Vehicle info row
         val vehicleRow = Row.Builder()
-            .setTitle("מספר רכב: $formattedPlate")
+            .setTitle("🚗 רכב: $formattedPlate")
             .apply {
                 if (driverName.isNotBlank()) {
                     addText("נהג: $driverName")
@@ -93,15 +73,16 @@ class PointerCarScreen(carContext: CarContext) : Screen(carContext) {
             .build()
         paneBuilder.addRow(vehicleRow)
 
-        // Status row
+        // 2. Status row
+        val currentlyExecuting = isDisarming || DisarmManager.isDisarmInProgress()
         val statusTitle = when {
-            isSuccess -> "קודן נוטרל בהצלחה! 🚗"
-            isNetworkError -> "⚠️ התקשורת עדיין לא הצליחה"
-            statusMessage != null -> "סטטוס ניטרול"
-            else -> "קודן מוכן לניטרול"
+            currentlyExecuting -> "⏳ שולח קוד לפוינטר..."
+            isSuccess -> "✅ קודן נוטרל בהצלחה!"
+            isError -> "⚠️ התקשורת עדיין לא הצליחה"
+            else -> "קודן מוכן לנטרול"
         }
 
-        val statusDetails = statusMessage ?: "לחץ על הכפתור לניטרול הקודן"
+        val statusDetails = statusMessage ?: "לחץ על הכפתור לנטרול הקודן"
 
         val statusRow = Row.Builder()
             .setTitle(statusTitle)
@@ -109,13 +90,27 @@ class PointerCarScreen(carContext: CarContext) : Screen(carContext) {
             .build()
         paneBuilder.addRow(statusRow)
 
-        // Action button on car screen
-        val actionTitle = if (isNetworkError) "נסה שוב כעת" else if (isSuccess) "נטרל שוב" else "נטרל קודן כעת"
+        // 3. Action button (never blocks the entire screen with a loading spinner)
+        val actionTitle = when {
+            currentlyExecuting -> "שולח קוד..."
+            isError -> "🔄 נסה שוב כעת"
+            isSuccess -> "🔄 שלח קוד שוב"
+            else -> "🚗 שלח קוד פוינטר כעת"
+        }
+
+        val actionColor = when {
+            isError -> CarColor.YELLOW
+            currentlyExecuting -> CarColor.SECONDARY
+            else -> CarColor.GREEN
+        }
+
         val action = Action.Builder()
             .setTitle(actionTitle)
-            .setBackgroundColor(if (isNetworkError) CarColor.YELLOW else CarColor.GREEN)
+            .setBackgroundColor(actionColor)
             .setOnClickListener {
-                performDisarm(source = "מסך הרכב (Android Auto)")
+                if (!isDisarming && !DisarmManager.isDisarmInProgress()) {
+                    performDisarm()
+                }
             }
             .build()
 
@@ -142,10 +137,9 @@ class PointerCarScreen(carContext: CarContext) : Screen(carContext) {
         }
     }
 
-    private fun performDisarm(source: String) {
+    private fun performDisarm() {
         val vNumber = prefs.getVehicleNumber()
         val code = prefs.getPointerCode()
-        val driverName = prefs.getDriverName()
 
         if (vNumber.isBlank() || code.length != 4) {
             statusMessage = "פרטי רכב חסרים או לא תקינים"
@@ -153,64 +147,39 @@ class PointerCarScreen(carContext: CarContext) : Screen(carContext) {
             return
         }
 
-        isLoading = true
+        isDisarming = true
+        isError = false
+        statusMessage = "שולח קוד פוינטר לרכב כעת..."
         invalidate()
 
-        CoroutineScope(Dispatchers.IO).launch {
-            // Also delegate through smart retry in BluetoothReceiver
-            val now = System.currentTimeMillis()
-            val result = PointerApi.checkCode(vNumber, code, driverName)
-
-            withContext(Dispatchers.Main) {
-                isLoading = false
-                when (result) {
-                    is PointerResult.Success -> {
-                        isSuccess = true
-                        isNetworkError = false
-                        statusMessage = "הרכב פתוח • ${result.message} • נסיעה טובה!"
-                        prefs.addDisarmHistory(
-                            DisarmHistoryEntry(
-                                timestamp = now,
-                                source = source,
-                                success = true,
-                                message = result.message
-                            )
-                        )
-                        CarToast.makeText(carContext, "קודן פוינטר נוטרל בהצלחה! נסיעה טובה", CarToast.LENGTH_SHORT).show()
-                    }
-                    is PointerResult.Failure -> {
-                        isSuccess = false
-                        isNetworkError = false
-                        statusMessage = "שגיאה: ${result.message}"
-                        prefs.addDisarmHistory(
-                            DisarmHistoryEntry(
-                                timestamp = now,
-                                source = source,
-                                success = false,
-                                message = result.message
-                            )
-                        )
-                        CarToast.makeText(carContext, "שגיאה בניטרול: ${result.message}", CarToast.LENGTH_LONG).show()
-                    }
-                    is PointerResult.NetworkError -> {
-                        isSuccess = false
-                        isNetworkError = true
-                        statusMessage = "אין חיבור לאינטרנט ברכב כרגע. מתבצעים ניסיונות חוזרים..."
-                        prefs.addDisarmHistory(
-                            DisarmHistoryEntry(
-                                timestamp = now,
-                                source = source,
-                                success = false,
-                                message = result.errorMsg
-                            )
-                        )
-                        CarToast.makeText(carContext, "התקשורת עדיין לא הצליחה - לחץ לניסיון חוזר", CarToast.LENGTH_LONG).show()
-                        // Run smart retry in background
-                        BluetoothReceiver.executeDisarm(carContext, prefs, source)
-                    }
+        DisarmManager.triggerDisarm(
+            context = carContext,
+            prefs = prefs,
+            source = "מסך הרכב (Android Auto)",
+            forceManual = true
+        ) { result ->
+            isDisarming = false
+            when (result) {
+                is PointerResult.Success -> {
+                    isSuccess = true
+                    isError = false
+                    statusMessage = "הרכב נוטרל: ${result.message} • נסיעה טובה!"
+                    CarToast.makeText(carContext, "קודן פוינטר נוטרל בהצלחה! 🚗", CarToast.LENGTH_SHORT).show()
                 }
-                invalidate()
+                is PointerResult.Failure -> {
+                    isSuccess = false
+                    isError = true
+                    statusMessage = "שגיאה: ${result.message}"
+                    CarToast.makeText(carContext, "שגיאה: ${result.message}", CarToast.LENGTH_LONG).show()
+                }
+                is PointerResult.NetworkError -> {
+                    isSuccess = false
+                    isError = true
+                    statusMessage = "אין קליטה סלולרית ברכב (${result.errorMsg})"
+                    CarToast.makeText(carContext, "בעיית תקשורת ברכב. לחץ לניסיון חוזר", CarToast.LENGTH_LONG).show()
+                }
             }
+            invalidate()
         }
     }
 

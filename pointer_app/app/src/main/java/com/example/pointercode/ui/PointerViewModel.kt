@@ -14,6 +14,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.pointercode.MainActivity
 import com.example.pointercode.R
+import com.example.pointercode.data.DisarmManager
 import com.example.pointercode.data.PointerApi
 import com.example.pointercode.data.PointerPreferences
 import com.example.pointercode.data.PointerResult
@@ -182,11 +183,23 @@ class PointerViewModel(
         disarmNow(source = "הגדרה ראשונית", onFinish = onFinish)
     }
 
+    fun refreshState() {
+        _uiState.value = _uiState.value.copy(
+            isConfigured = preferences.isConfigured(),
+            vehicleNumber = preferences.getVehicleNumber(),
+            code = preferences.getPointerCode(),
+            driverName = preferences.getDriverName(),
+            isBtAutoDisarmEnabled = preferences.isBtAutoDisarmEnabled(),
+            btDeviceName = preferences.getBtDeviceName(),
+            btDeviceAddress = preferences.getBtDeviceAddress(),
+            disarmHistory = preferences.getDisarmHistory()
+        )
+    }
+
     fun disarmNow(source: String = "ידני", onFinish: (() -> Unit)? = null) {
         countdownJob?.cancel()
         val vNumber = preferences.getVehicleNumber()
         val code = preferences.getPointerCode()
-        val name = preferences.getDriverName()
 
         if (vNumber.isBlank() || code.length != 4) {
             openSetup()
@@ -199,19 +212,14 @@ class PointerViewModel(
             recentlyDisarmedNotice = null
         )
 
-        val now = System.currentTimeMillis()
-        viewModelScope.launch {
-            val result = PointerApi.checkCode(vNumber, code, name)
+        DisarmManager.triggerDisarm(
+            context = appContext,
+            prefs = preferences,
+            source = source,
+            forceManual = true
+        ) { result ->
             when (result) {
                 is PointerResult.Success -> {
-                    preferences.addDisarmHistory(
-                        DisarmHistoryEntry(
-                            timestamp = now,
-                            source = source,
-                            success = true,
-                            message = result.message
-                        )
-                    )
                     _uiState.value = _uiState.value.copy(
                         disarmHistory = preferences.getDisarmHistory()
                     )
@@ -219,14 +227,6 @@ class PointerViewModel(
                     startAutoCloseCountdown(result.message, onFinish)
                 }
                 is PointerResult.Failure -> {
-                    preferences.addDisarmHistory(
-                        DisarmHistoryEntry(
-                            timestamp = now,
-                            source = source,
-                            success = false,
-                            message = result.message
-                        )
-                    )
                     _uiState.value = _uiState.value.copy(
                         disarmStatus = DisarmStatus.Error(
                             message = result.message,
@@ -237,14 +237,6 @@ class PointerViewModel(
                     )
                 }
                 is PointerResult.NetworkError -> {
-                    preferences.addDisarmHistory(
-                        DisarmHistoryEntry(
-                            timestamp = now,
-                            source = source,
-                            success = false,
-                            message = result.errorMsg
-                        )
-                    )
                     _uiState.value = _uiState.value.copy(
                         disarmStatus = DisarmStatus.Error(
                             message = result.errorMsg,
@@ -416,9 +408,12 @@ class PointerViewModel(
 
     fun simulateBluetoothTrigger() {
         val deviceName = preferences.getBtDeviceName().ifBlank { "הרכב המצומד" }
-        BluetoothReceiver.executeDisarm(appContext, preferences, deviceName)
-        viewModelScope.launch {
-            delay(1200)
+        DisarmManager.triggerDisarm(
+            context = appContext,
+            prefs = preferences,
+            source = "בלוטות' ($deviceName)",
+            forceManual = true
+        ) {
             refreshHistory()
         }
     }

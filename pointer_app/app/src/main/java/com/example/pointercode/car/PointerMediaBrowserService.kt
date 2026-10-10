@@ -10,6 +10,7 @@ import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
 import androidx.media.MediaBrowserServiceCompat
 import com.example.pointercode.data.DisarmHistoryEntry
+import com.example.pointercode.data.DisarmManager
 import com.example.pointercode.data.PointerApi
 import com.example.pointercode.data.PointerPreferences
 import com.example.pointercode.data.PointerResult
@@ -228,58 +229,31 @@ class PointerMediaBrowserService : MediaBrowserServiceCompat() {
 
         updatePlaybackState(PlaybackStateCompat.STATE_BUFFERING, "מנטרל קודן רכב...")
 
-        CoroutineScope(Dispatchers.IO).launch {
-            val now = System.currentTimeMillis()
-            val result = PointerApi.checkCode(vNumber, code, driverName)
-
-            withContext(Dispatchers.Main) {
-                when (result) {
-                    is PointerResult.Success -> {
-                        prefs.addDisarmHistory(
-                            DisarmHistoryEntry(
-                                timestamp = now,
-                                source = source,
-                                success = true,
-                                message = result.message
-                            )
-                        )
-                        updatePlaybackState(PlaybackStateCompat.STATE_PLAYING, "נוטרל בהצלחה! ${result.message}")
-                        playSuccessTone()
-
-                        // After 2.5 seconds, reset state to PAUSED so car radio audio isn't hijacked
-                        CoroutineScope(Dispatchers.Main).launch {
-                            kotlinx.coroutines.delay(2500)
-                            updatePlaybackState(PlaybackStateCompat.STATE_PAUSED, "נוטרל: ${result.message}")
-                        }
-                    }
-                    is PointerResult.Failure -> {
-                        prefs.addDisarmHistory(
-                            DisarmHistoryEntry(
-                                timestamp = now,
-                                source = source,
-                                success = false,
-                                message = result.message
-                            )
-                        )
-                        updatePlaybackState(PlaybackStateCompat.STATE_ERROR, "שגיאה: ${result.message}")
-                    }
-                    is PointerResult.NetworkError -> {
-                        prefs.addDisarmHistory(
-                            DisarmHistoryEntry(
-                                timestamp = now,
-                                source = source,
-                                success = false,
-                                message = result.errorMsg
-                            )
-                        )
-                        updatePlaybackState(PlaybackStateCompat.STATE_ERROR, "אין קליטה: ${result.errorMsg}")
+        DisarmManager.triggerDisarm(
+            context = this,
+            prefs = prefs,
+            source = source,
+            forceManual = true
+        ) { result ->
+            when (result) {
+                is PointerResult.Success -> {
+                    updatePlaybackState(PlaybackStateCompat.STATE_PLAYING, "נוטרל בהצלחה! ${result.message}")
+                    playSuccessTone()
+                    CoroutineScope(Dispatchers.Main).launch {
+                        kotlinx.coroutines.delay(2500)
+                        updatePlaybackState(PlaybackStateCompat.STATE_PAUSED, "נוטרל: ${result.message}")
                     }
                 }
-                // Refresh list on car screen
-                notifyChildrenChanged(ROOT_ID)
-                notifyChildrenChanged(CATEGORY_ACTIONS)
-                notifyChildrenChanged(CATEGORY_HISTORY)
+                is PointerResult.Failure -> {
+                    updatePlaybackState(PlaybackStateCompat.STATE_ERROR, "שגיאה: ${result.message}")
+                }
+                is PointerResult.NetworkError -> {
+                    updatePlaybackState(PlaybackStateCompat.STATE_ERROR, "אין קליטה: ${result.errorMsg}")
+                }
             }
+            notifyChildrenChanged(ROOT_ID)
+            notifyChildrenChanged(CATEGORY_ACTIONS)
+            notifyChildrenChanged(CATEGORY_HISTORY)
         }
     }
 

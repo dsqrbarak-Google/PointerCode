@@ -101,7 +101,7 @@ val PointerRed = Color(0xFFE44126)
 val PointerDark = Color(0xFF212121)
 val PlateYellow = Color(0xFFFFD600)
 val SuccessGreen = Color(0xFF2E7D32)
-const val APP_VERSION = "1.3.6"
+const val APP_VERSION = "1.3.7"
 
 @Composable
 fun PointerMainScreen(
@@ -261,7 +261,42 @@ fun DisarmScreen(
                 }
 
                 // Bluetooth Auto-Disarm Status Pill
-                if (state.isBtAutoDisarmEnabled && state.btDeviceName.isNotBlank()) {
+                val hasBtPermission = com.example.pointercode.bluetooth.BluetoothHelper.hasBluetoothPermission(context)
+                if (state.isBtAutoDisarmEnabled && !hasBtPermission) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFFEF3C7),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF59E0B)),
+                        modifier = Modifier.clickable { onOpenSetup() }
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = Color(0xFFD97706),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = "נדרשת הרשאת בלוטות' לזיהוי הרכב!",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF92400E)
+                                )
+                                Text(
+                                    text = "לחץ כאן להענקת ההרשאה בהגדרות",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFFB45309)
+                                )
+                            }
+                        }
+                    }
+                } else if (state.isBtAutoDisarmEnabled && state.btDeviceName.isNotBlank()) {
                     Spacer(modifier = Modifier.height(10.dp))
                     Surface(
                         shape = RoundedCornerShape(12.dp),

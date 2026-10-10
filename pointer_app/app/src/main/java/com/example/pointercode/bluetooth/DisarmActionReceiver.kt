@@ -3,6 +3,7 @@ package com.example.pointercode.bluetooth
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import com.example.pointercode.data.DisarmManager
 import com.example.pointercode.data.PointerPreferences
 
 /**
@@ -15,7 +16,12 @@ class DisarmActionReceiver : BroadcastReceiver() {
         if (!prefs.isConfigured()) return
 
         val source = intent?.getStringExtra("EXTRA_SOURCE") ?: "ניסיון חוזר מהתראה"
-        BluetoothReceiver.executeDisarm(context, prefs, source, goAsync())
+        DisarmManager.triggerDisarm(
+            context = context,
+            prefs = prefs,
+            source = source,
+            forceManual = true
+        )
     }
 
     companion object {
