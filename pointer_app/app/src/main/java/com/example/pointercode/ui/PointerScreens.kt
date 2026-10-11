@@ -1,30 +1,37 @@
 package com.example.pointercode.ui
 
+import android.Manifest
+import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.ui.res.painterResource
-import com.example.pointercode.R
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -32,55 +39,51 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddCircle
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Warning
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.BluetoothConnected
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
-import com.example.pointercode.bluetooth.BluetoothDeviceInfo
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -88,6 +91,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -96,12 +100,30 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import com.example.pointercode.R
+import com.example.pointercode.bluetooth.BluetoothDeviceInfo
 
 val PointerRed = Color(0xFFE44126)
-val PointerDark = Color(0xFF212121)
+val PointerDark = Color(0xFF0F172A)
 val PlateYellow = Color(0xFFFFD600)
 val SuccessGreen = Color(0xFF2E7D32)
-const val APP_VERSION = "1.3.9"
+const val APP_VERSION = "1.4.0"
+
+@Composable
+fun pointerTextFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedTextColor = Color(0xFF0F172A),
+    unfocusedTextColor = Color(0xFF0F172A),
+    focusedContainerColor = Color(0xFFF8FAFC),
+    unfocusedContainerColor = Color(0xFFF8FAFC),
+    focusedBorderColor = Color(0xFF0284C7),
+    unfocusedBorderColor = Color(0xFFCBD5E1),
+    focusedLabelColor = Color(0xFF0284C7),
+    unfocusedLabelColor = Color(0xFF475569),
+    focusedPlaceholderColor = Color(0xFF94A3B8),
+    unfocusedPlaceholderColor = Color(0xFF94A3B8),
+    cursorColor = Color(0xFF0284C7)
+)
 
 @Composable
 fun PointerMainScreen(
@@ -110,6 +132,8 @@ fun PointerMainScreen(
     onCloseActivity: () -> Unit
 ) {
     val context = LocalContext.current
+    var showHelpDialog by remember { mutableStateOf(false) }
+
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         when (state.screenMode) {
             is ScreenMode.Disarm -> {
@@ -124,7 +148,8 @@ fun PointerMainScreen(
                         }
                     },
                     onToggleCountdownPause = { viewModel.toggleCountdownPause() },
-                    onOpenLogs = { viewModel.openLogsDialog() }
+                    onOpenLogs = { viewModel.openLogsDialog() },
+                    onOpenHelpGuide = { showHelpDialog = true }
                 )
             }
             is ScreenMode.Setup -> {
@@ -145,7 +170,8 @@ fun PointerMainScreen(
                         if (ok) {
                             Toast.makeText(context, "יומן האבחון הועתק ללוח!", Toast.LENGTH_SHORT).show()
                         }
-                    }
+                    },
+                    onOpenHelpGuide = { showHelpDialog = true }
                 )
             }
         }
@@ -177,6 +203,10 @@ fun PointerMainScreen(
                 onDismiss = { viewModel.dismissLogsDialog() }
             )
         }
+
+        if (showHelpDialog) {
+            HelpGuideDialog(onDismiss = { showHelpDialog = false })
+        }
     }
 }
 
@@ -186,12 +216,15 @@ fun DisarmScreen(
     state: PointerUiState,
     onDisarmNow: () -> Unit,
     onOpenSetup: () -> Unit,
-    onRequestPinShortcut: (android.content.Context) -> Unit,
+    onRequestPinShortcut: (Context) -> Unit,
     onToggleCountdownPause: () -> Unit,
-    onOpenLogs: () -> Unit
+    onOpenLogs: () -> Unit,
+    onOpenHelpGuide: () -> Unit
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
+    var menuExpanded by remember { mutableStateOf(false) }
+    var isHistoryExpanded by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -199,31 +232,36 @@ fun DisarmScreen(
                 title = {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.clickable {
-                            val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://barak.rocks/"))
-                            context.startActivity(browserIntent)
-                        }
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://barak.rocks/"))
+                                context.startActivity(browserIntent)
+                            }
                     ) {
                         Image(
                             painter = painterResource(id = R.drawable.ic_tarsier),
                             contentDescription = "4S Monkey Logo",
                             modifier = Modifier
-                                .size(36.dp)
+                                .size(38.dp)
                                 .clip(CircleShape)
                         )
                         Spacer(modifier = Modifier.width(10.dp))
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = "4S Pointer Code",
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = FontWeight.ExtraBold,
                                 color = Color.White,
-                                fontSize = 17.sp
+                                fontSize = 18.sp,
+                                maxLines = 1
                             )
                             Text(
                                 text = "4S • Smart Solutions for Silly Situations",
                                 color = Color(0xFF38BDF8),
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Medium
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
                     }
@@ -232,36 +270,73 @@ fun DisarmScreen(
                     containerColor = PointerDark
                 ),
                 actions = {
-                    IconButton(onClick = onOpenLogs) {
-                        Icon(
-                            imageVector = Icons.Default.History,
-                            contentDescription = "יומן פעולות ואבחון",
-                            tint = Color(0xFF38BDF8)
-                        )
-                    }
-                    IconButton(onClick = {
-                        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://barak.rocks/"))
-                        context.startActivity(browserIntent)
-                    }) {
-                        Icon(
-                            imageVector = Icons.Default.Language,
-                            contentDescription = "לאתר הבית barak.rocks",
-                            tint = Color(0xFF38BDF8)
-                        )
-                    }
-                    IconButton(onClick = { onRequestPinShortcut(context) }) {
-                        Icon(
-                            imageVector = Icons.Default.AddCircle,
-                            contentDescription = "הוסף קיצור דרך למסך הבית",
-                            tint = Color.White
-                        )
-                    }
-                    IconButton(onClick = onOpenSetup) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "הגדרות",
-                            tint = Color.White
-                        )
+                    Box {
+                        IconButton(onClick = { menuExpanded = true }) {
+                            Icon(
+                                imageVector = Icons.Default.Menu,
+                                contentDescription = "תפריט אפשרויות",
+                                tint = Color.White,
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false },
+                            modifier = Modifier.background(Color.White)
+                        ) {
+                            DropdownMenuItem(
+                                leadingIcon = {
+                                    Icon(Icons.Default.Settings, contentDescription = null, tint = PointerDark, modifier = Modifier.size(20.dp))
+                                },
+                                text = { Text("הגדרות רכב וקוד", color = PointerDark, fontWeight = FontWeight.SemiBold) },
+                                onClick = {
+                                    menuExpanded = false
+                                    onOpenSetup()
+                                }
+                            )
+                            DropdownMenuItem(
+                                leadingIcon = {
+                                    Icon(Icons.Default.History, contentDescription = null, tint = Color(0xFF0284C7), modifier = Modifier.size(20.dp))
+                                },
+                                text = { Text("יומן פעולות ואבחון", color = PointerDark, fontWeight = FontWeight.SemiBold) },
+                                onClick = {
+                                    menuExpanded = false
+                                    onOpenLogs()
+                                }
+                            )
+                            DropdownMenuItem(
+                                leadingIcon = {
+                                    Icon(Icons.Default.AddCircle, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(20.dp))
+                                },
+                                text = { Text("הוסף קיצור דרך למסך הבית", color = PointerDark, fontWeight = FontWeight.SemiBold) },
+                                onClick = {
+                                    menuExpanded = false
+                                    onRequestPinShortcut(context)
+                                }
+                            )
+                            DropdownMenuItem(
+                                leadingIcon = {
+                                    Icon(Icons.Default.Info, contentDescription = null, tint = Color(0xFF0284C7), modifier = Modifier.size(20.dp))
+                                },
+                                text = { Text("מדריך והסברים על המערכת", color = PointerDark, fontWeight = FontWeight.SemiBold) },
+                                onClick = {
+                                    menuExpanded = false
+                                    onOpenHelpGuide()
+                                }
+                            )
+                            DropdownMenuItem(
+                                leadingIcon = {
+                                    Icon(Icons.Default.Language, contentDescription = null, tint = Color(0xFF0284C7), modifier = Modifier.size(20.dp))
+                                },
+                                text = { Text("לאתר הבית barak.rocks", color = Color(0xFF0284C7), fontWeight = FontWeight.SemiBold) },
+                                onClick = {
+                                    menuExpanded = false
+                                    val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://barak.rocks/"))
+                                    context.startActivity(browserIntent)
+                                }
+                            )
+                        }
                     }
                 }
             )
@@ -273,14 +348,14 @@ fun DisarmScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .verticalScroll(scrollState)
-                .padding(20.dp),
+                .padding(horizontal = 20.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
                 // License Plate View
                 IsraeliLicensePlate(vehicleNumber = state.vehicleNumber)
@@ -301,7 +376,7 @@ fun DisarmScreen(
                     Surface(
                         shape = RoundedCornerShape(12.dp),
                         color = Color(0xFFFEF3C7),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF59E0B)),
+                        border = BorderStroke(1.dp, Color(0xFFF59E0B)),
                         modifier = Modifier.clickable { onOpenSetup() }
                     ) {
                         Row(
@@ -384,7 +459,7 @@ fun DisarmScreen(
                 }
             }
 
-            // Central Status Area
+            // Central Status Card
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -396,7 +471,7 @@ fun DisarmScreen(
                     ),
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(
                     modifier = Modifier
@@ -547,7 +622,7 @@ fun DisarmScreen(
                                     shape = RoundedCornerShape(8.dp)
                                 ) {
                                     Text(
-                                        text = "השליחה האוטומטית דולגה כדי לא לשלוח שוב תוך 2 דקות",
+                                        text = "השליחה האוטומטית דולגה כדי לא לשלוח שוב תוך 15 דקות",
                                         fontSize = 12.sp,
                                         color = SuccessGreen,
                                         fontWeight = FontWeight.Medium,
@@ -574,154 +649,14 @@ fun DisarmScreen(
                 }
             }
 
-            // 5 Latest Disarms History Card
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(18.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.History,
-                                contentDescription = null,
-                                tint = PointerDark,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "5 שליחות אחרונות",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = PointerDark
-                            )
-                        }
-
-                        if (state.disarmHistory.isNotEmpty()) {
-                            Surface(
-                                color = Color(0xFFF1F5F9),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text(
-                                    text = "${state.disarmHistory.size}/5",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF475569),
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    if (state.disarmHistory.isEmpty()) {
-                        Surface(
-                            color = Color(0xFFF8FAFC),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = "טרם נשלח קוד מהמכשיר.",
-                                fontSize = 13.sp,
-                                color = Color.Gray,
-                                modifier = Modifier.padding(12.dp)
-                            )
-                        }
-                    } else {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            state.disarmHistory.take(5).forEachIndexed { index, entry ->
-                                val isLatest = index == 0
-                                Surface(
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = if (isLatest) Color(0xFFF0FDF4) else Color(0xFFF8FAFC),
-                                    border = BorderStroke(
-                                        1.dp,
-                                        if (isLatest) Color(0xFF86EFAC) else Color(0xFFE2E8F0)
-                                    ),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            imageVector = if (entry.success) Icons.Default.CheckCircle else Icons.Default.Warning,
-                                            contentDescription = null,
-                                            tint = if (entry.success) SuccessGreen else PointerRed,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(10.dp))
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.SpaceBetween,
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Text(
-                                                    text = formatHistoryTimestamp(entry.timestamp),
-                                                    fontSize = 13.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    fontFamily = FontFamily.Monospace,
-                                                    color = PointerDark
-                                                )
-                                                Text(
-                                                    text = formatRelativeTime(entry.timestamp),
-                                                    fontSize = 11.sp,
-                                                    color = if (isLatest) SuccessGreen else Color.Gray,
-                                                    fontWeight = if (isLatest) FontWeight.Bold else FontWeight.Normal
-                                                )
-                                            }
-                                            Spacer(modifier = Modifier.height(2.dp))
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.SpaceBetween,
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Text(
-                                                    text = entry.source,
-                                                    fontSize = 12.sp,
-                                                    color = if (entry.source.contains("בלוטות'")) Color(0xFF0284C7) else Color(0xFF475569),
-                                                    fontWeight = FontWeight.Medium
-                                                )
-                                                Text(
-                                                    text = entry.message,
-                                                    fontSize = 12.sp,
-                                                    color = if (entry.success) SuccessGreen else PointerRed,
-                                                    maxLines = 1
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Bottom Actions Area
+            // Main Disarm Button Area (Immediately below status!)
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 when (state.disarmStatus) {
                     is DisarmStatus.Success -> {
-                        // Buttons removed per user request: touch countdown badge/card to pause or resume
+                        // Handled by countdown tap
                     }
 
                     is DisarmStatus.Error -> {
@@ -732,12 +667,15 @@ fun DisarmScreen(
                             Button(
                                 onClick = onDisarmNow,
                                 modifier = Modifier.weight(1f).height(50.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = PointerRed),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = PointerRed,
+                                    contentColor = Color.White
+                                ),
                                 shape = RoundedCornerShape(14.dp)
                             ) {
-                                Icon(Icons.Default.Refresh, contentDescription = null)
+                                Icon(Icons.Default.Refresh, contentDescription = null, tint = Color.White)
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("נסה שוב", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                Text("נסה שוב", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
                             }
                             OutlinedButton(
                                 onClick = onOpenSetup,
@@ -749,7 +687,7 @@ fun DisarmScreen(
                                 Text("שנה הגדרות", fontSize = 15.sp)
                             }
                         }
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         TextButton(
                             onClick = {
                                 val browserIntent = Intent(
@@ -759,7 +697,7 @@ fun DisarmScreen(
                                 context.startActivity(browserIntent)
                             }
                         ) {
-                            Text("פתח באתר פוינטר בדפדפן", color = Color.Gray, fontSize = 14.sp)
+                            Text("פתח באתר פוינטר בדפדפן ↗", color = Color(0xFF64748B), fontSize = 13.sp)
                         }
                     }
 
@@ -768,87 +706,242 @@ fun DisarmScreen(
                         Button(
                             onClick = onDisarmNow,
                             modifier = Modifier.fillMaxWidth().height(52.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = PointerRed),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = PointerRed,
+                                contentColor = Color.White
+                            ),
                             shape = RoundedCornerShape(14.dp),
                             enabled = state.disarmStatus !is DisarmStatus.Loading
                         ) {
-                            Icon(Icons.Default.Lock, contentDescription = null)
+                            Icon(Icons.Default.Lock, contentDescription = null, tint = Color.White)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(buttonText, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                            Text(buttonText, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         }
                     }
                 }
+            }
 
-                Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-                // 4S Brand Footer Card - ALWAYS VISIBLE
-                Card(
+            // Collapsible History Card (Moved to bottom!)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.5.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { isHistoryExpanded = !isHistoryExpanded },
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.History,
+                                contentDescription = null,
+                                tint = Color(0xFF0284C7),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "היסטוריית שליחות אחרונות",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = PointerDark
+                            )
+                            if (state.disarmHistory.isNotEmpty()) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Surface(
+                                    color = Color(0xFFF1F5F9),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(
+                                        text = "${state.disarmHistory.size}",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF475569),
+                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        TextButton(
+                            onClick = { isHistoryExpanded = !isHistoryExpanded },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = if (isHistoryExpanded) "הסתר ▲" else "הצג ▼",
+                                fontSize = 13.sp,
+                                color = Color(0xFF0284C7),
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    AnimatedVisibility(visible = isHistoryExpanded) {
+                        Column(modifier = Modifier.padding(top = 12.dp)) {
+                            if (state.disarmHistory.isEmpty()) {
+                                Surface(
+                                    color = Color(0xFFF8FAFC),
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = "טרם נרשמו שליחות קוד מהמכשיר.",
+                                        fontSize = 13.sp,
+                                        color = Color.Gray,
+                                        modifier = Modifier.padding(12.dp)
+                                    )
+                                }
+                            } else {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    state.disarmHistory.take(5).forEachIndexed { index, entry ->
+                                        val isLatest = index == 0
+                                        Surface(
+                                            shape = RoundedCornerShape(12.dp),
+                                            color = if (isLatest) Color(0xFFF0FDF4) else Color(0xFFF8FAFC),
+                                            border = BorderStroke(
+                                                1.dp,
+                                                if (isLatest) Color(0xFF86EFAC) else Color(0xFFE2E8F0)
+                                            ),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = if (entry.success) Icons.Default.CheckCircle else Icons.Default.Warning,
+                                                    contentDescription = null,
+                                                    tint = if (entry.success) SuccessGreen else PointerRed,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(10.dp))
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Text(
+                                                            text = formatHistoryTimestamp(entry.timestamp),
+                                                            fontSize = 13.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            fontFamily = FontFamily.Monospace,
+                                                            color = PointerDark
+                                                        )
+                                                        Text(
+                                                            text = formatRelativeTime(entry.timestamp),
+                                                            fontSize = 11.sp,
+                                                            color = if (isLatest) SuccessGreen else Color.Gray,
+                                                            fontWeight = if (isLatest) FontWeight.Bold else FontWeight.Normal
+                                                        )
+                                                    }
+                                                    Spacer(modifier = Modifier.height(2.dp))
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Text(
+                                                            text = entry.source,
+                                                            fontSize = 12.sp,
+                                                            color = if (entry.source.contains("בלוטות'")) Color(0xFF0284C7) else Color(0xFF475569),
+                                                            fontWeight = FontWeight.Medium
+                                                        )
+                                                        Text(
+                                                            text = entry.message,
+                                                            fontSize = 12.sp,
+                                                            color = if (entry.success) SuccessGreen else PointerRed,
+                                                            maxLines = 1
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            // 4S Brand Footer Card - Sleek & Compact
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        val browserIntent = Intent(
+                            Intent.ACTION_VIEW,
+                            Uri.parse("https://barak.rocks/")
+                        )
+                        context.startActivity(browserIntent)
+                    },
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable {
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_tarsier),
+                            contentDescription = "4S Monkey Logo",
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "4S • Smart Solutions for Silly Situations",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF38BDF8)
+                            )
+                            Text(
+                                text = "דוד (דידי) ברק • גרסה $APP_VERSION",
+                                fontSize = 10.sp,
+                                color = Color(0xFF94A3B8)
+                            )
+                        }
+                    }
+
+                    Button(
+                        onClick = {
                             val browserIntent = Intent(
                                 Intent.ACTION_VIEW,
                                 Uri.parse("https://barak.rocks/")
                             )
                             context.startActivity(browserIntent)
                         },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.ic_tarsier),
-                                contentDescription = "4S Monkey Logo",
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Text(
-                                    text = "4S • Smart Solutions for Silly Situations",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF38BDF8)
-                                )
-                                Text(
-                                    text = "דוד (דידי) ברק • גרסה $APP_VERSION",
-                                    fontSize = 10.sp,
-                                    color = Color(0xFF94A3B8)
-                                )
-                            }
-                        }
-
-                        Button(
-                            onClick = {
-                                val browserIntent = Intent(
-                                    Intent.ACTION_VIEW,
-                                    Uri.parse("https://barak.rocks/")
-                                )
-                                context.startActivity(browserIntent)
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
-                            shape = RoundedCornerShape(10.dp),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = "barak.rocks ↗",
-                                color = Color.White,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                        Text(
+                            text = "barak.rocks ↗",
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }
@@ -870,7 +963,8 @@ fun SetupScreen(
     onSave: () -> Unit,
     onCancel: () -> Unit,
     onOpenLogs: () -> Unit,
-    onCopyLogs: () -> Unit
+    onCopyLogs: () -> Unit,
+    onOpenHelpGuide: () -> Unit
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
@@ -919,22 +1013,24 @@ fun SetupScreen(
                             painter = painterResource(id = R.drawable.ic_tarsier),
                             contentDescription = "4S Monkey Logo",
                             modifier = Modifier
-                                .size(34.dp)
+                                .size(36.dp)
                                 .clip(CircleShape)
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
                             Text(
                                 text = "הגדרת קודן פוינטר",
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = FontWeight.ExtraBold,
                                 color = Color.White,
-                                fontSize = 17.sp
+                                fontSize = 18.sp
                             )
                             Text(
                                 text = "4S • Smart Solutions for Silly Situations",
                                 color = Color(0xFF38BDF8),
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Medium
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
                     }
@@ -945,18 +1041,15 @@ fun SetupScreen(
                 navigationIcon = {
                     if (state.isConfigured) {
                         IconButton(onClick = onCancel) {
-                            Icon(Icons.Default.Close, contentDescription = "ביטול", tint = Color.White)
+                            Icon(Icons.Default.Close, contentDescription = "חזור", tint = Color.White)
                         }
                     }
                 },
                 actions = {
-                    IconButton(onClick = {
-                        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://barak.rocks/"))
-                        context.startActivity(browserIntent)
-                    }) {
+                    IconButton(onClick = onOpenHelpGuide) {
                         Icon(
-                            imageVector = Icons.Default.Language,
-                            contentDescription = "לאתר הבית barak.rocks",
+                            imageVector = Icons.Default.Info,
+                            contentDescription = "מדריך והסברים",
                             tint = Color(0xFF38BDF8)
                         )
                     }
@@ -970,9 +1063,10 @@ fun SetupScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .verticalScroll(scrollState)
-                .padding(20.dp),
+                .padding(horizontal = 20.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Card 1: Vehicle & Code Inputs
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
@@ -984,22 +1078,14 @@ fun SetupScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "הזנת פרטי רכב וקוד",
-                        fontSize = 19.sp,
+                        text = "פרטי רכב וקוד",
+                        fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = PointerDark,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "הפרטים נשמרים מקומית בטלפון בלבד. בפעמים הבאות האפליקציה תנטרל את הרכב בלחיצה אחת בלי לשאול כלום.",
-                        fontSize = 13.sp,
-                        color = Color.Gray,
-                        lineHeight = 18.sp,
-                        modifier = Modifier.fillMaxWidth()
-                    )
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
                     // Vehicle Number Field
                     OutlinedTextField(
@@ -1010,7 +1096,8 @@ fun SetupScreen(
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        colors = pointerTextFieldColors()
                     )
 
                     Spacer(modifier = Modifier.height(14.dp))
@@ -1025,26 +1112,36 @@ fun SetupScreen(
                         visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        colors = pointerTextFieldColors()
                     )
 
                     // Helper indicator for 1-5 keys
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "בלוח פוינטר קיימות הספרות 1 עד 5 בלבד",
+                            text = "ספרות 1 עד 5 בלבד",
                             fontSize = 12.sp,
-                            color = Color(0xFF757575)
+                            color = Color(0xFF64748B)
                         )
-                        Text(
-                            text = "${state.setupCode.length}/4 ספרות",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (state.setupCode.length == 4) SuccessGreen else PointerRed
-                        )
+                        Surface(
+                            color = if (state.setupCode.length == 4) Color(0xFFDCFCE7) else Color(0xFFFEE2E2),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text(
+                                text = "${state.setupCode.length}/4 ספרות",
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (state.setupCode.length == 4) SuccessGreen else PointerRed,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(14.dp))
@@ -1057,7 +1154,8 @@ fun SetupScreen(
                         placeholder = { Text("לדוגמה: דוד") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        colors = pointerTextFieldColors()
                     )
 
                     AnimatedVisibility(visible = state.setupErrorMessage != null) {
@@ -1089,19 +1187,23 @@ fun SetupScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
                     Button(
                         onClick = onSave,
                         modifier = Modifier.fillMaxWidth().height(50.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = PointerRed),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = PointerRed,
+                            contentColor = Color.White
+                        ),
                         shape = RoundedCornerShape(14.dp),
                         enabled = state.setupVehicleNumber.length >= 6 && state.setupCode.length == 4
                     ) {
                         Text(
                             text = "שמור והפעל כעת",
                             fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
                         )
                     }
 
@@ -1118,9 +1220,9 @@ fun SetupScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Bluetooth Auto-Disarm Card
+            // Card 2: Bluetooth Auto-Disarm Card (Clean & uncluttered)
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
@@ -1162,7 +1264,7 @@ fun SetupScreen(
                                     color = PointerDark
                                 )
                                 Text(
-                                    text = "שליחת קוד ברקע בעת התחברות לרכב",
+                                    text = "שליחת קוד אוטומטית בעת התחברות לרכב",
                                     fontSize = 12.sp,
                                     color = Color.Gray
                                 )
@@ -1275,21 +1377,12 @@ fun SetupScreen(
                             Text("בחר מכשיר בלוטות' של הרכב", fontSize = 14.sp)
                         }
                     }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = "ברגע שתיכנס לרכב והטלפון יתחבר לבלוטות' (דיבורית או מולטימדיה), הקוד לפוינטר יישלח ישירות ברקע ללא שום התערבות מצידך, ותקבל התראה עם צליל ורטט שהקודן נוטרל!",
-                        fontSize = 12.sp,
-                        color = Color(0xFF64748B),
-                        lineHeight = 17.sp,
-                        modifier = Modifier.fillMaxWidth()
-                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Android Auto Card
+            // Card 3: Diagnostics Log Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
@@ -1297,7 +1390,7 @@ fun SetupScreen(
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(20.dp)
+                    modifier = Modifier.padding(18.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -1305,78 +1398,7 @@ fun SetupScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(42.dp)
-                                .background(Color(0xFFE8F5E9), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.DirectionsCar,
-                                contentDescription = null,
-                                tint = SuccessGreen,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                text = "תמיכה ב-Android Auto פעילה 🚗",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = PointerDark
-                            )
-                            Text(
-                                text = "שליטה ישירה ממסך הרכב והתראות בזמן אמת",
-                                fontSize = 12.sp,
-                                color = Color.Gray
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = Color(0xFFF0FDF4),
-                        border = BorderStroke(1.dp, Color(0xFFBBF7D0)),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text(
-                                text = "• האפליקציה זמינה ישירות במסך המולטימדיה של הרכב (Android Auto) עם כפתור ניטרול וסטטוס חי.",
-                                fontSize = 12.sp,
-                                color = Color(0xFF166534),
-                                lineHeight = 17.sp
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "• אם התקשורת מתעכבת עקב בעיות קליטה בעת הכניסה לרכב, תקבל התראה קולית וויזואלית במסך הרכב עם אפשרות לניסיון חוזר מיידי בלחיצה אחת.",
-                                fontSize = 12.sp,
-                                color = Color(0xFF166534),
-                                lineHeight = 17.sp
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(18.dp))
-
-            // Diagnostics Log Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(42.dp)
+                                .size(40.dp)
                                 .background(Color(0xFFFEF3C7), CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
@@ -1384,26 +1406,26 @@ fun SetupScreen(
                                 imageVector = Icons.Default.History,
                                 contentDescription = null,
                                 tint = Color(0xFFD97706),
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(22.dp)
                             )
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
                                 text = "יומן פעולות ואבחון (Log)",
-                                fontSize = 16.sp,
+                                fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = PointerDark
                             )
                             Text(
-                                text = "מעקב אחר זיהוי בלוטות', שליחת קוד ותקשורת",
-                                fontSize = 12.sp,
+                                text = "מעקב אחר זיהוי בלוטות' ושליחת קוד במכשיר",
+                                fontSize = 11.5.sp,
                                 color = Color.Gray
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -1415,7 +1437,7 @@ fun SetupScreen(
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Text("העתק יומן ללוח 📋", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text("העתק יומן ללוח 📋", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         }
                         OutlinedButton(
                             onClick = onOpenLogs,
@@ -1428,41 +1450,28 @@ fun SetupScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Explanation Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFECEFF1))
+            // Help & Guide Button (Replaces wall of text!)
+            OutlinedButton(
+                onClick = onOpenHelpGuide,
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, Color(0xFF0284C7))
             ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = null,
-                        tint = Color(0xFF455A64),
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = "איך זה עובד?",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            color = Color(0xFF263238)
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "המערכת מדמה את לחיצות הקודן מול אתר פוינטר ישירות דרך הרשת הנייטיבית תוך שבריר שנייה. אין צורך לחכות לטעינת הדפדפן, אין פרסומות, ואין צורך להקליד שוב.",
-                            fontSize = 12.sp,
-                            color = Color(0xFF455A64),
-                            lineHeight = 17.sp
-                        )
-                    }
-                }
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = null,
+                    tint = Color(0xFF0284C7),
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "מדריך והסברים על המערכת ℹ️",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF0284C7)
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -1537,6 +1546,131 @@ fun SetupScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun HelpGuideDialog(
+    onDismiss: () -> Unit
+) {
+    val scrollState = rememberScrollState()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = null,
+                        tint = Color(0xFF0284C7),
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "מדריך והסברים על המערכת",
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PointerDark
+                    )
+                }
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, contentDescription = "סגור", modifier = Modifier.size(20.dp))
+                }
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(scrollState)
+            ) {
+                GuideSectionItem(
+                    icon = "🚗",
+                    title = "זיהוי וניטרול אוטומטי (Bluetooth)",
+                    body = "כאשר אתה נכנס לרכב והטלפון מתחבר לדיבורית או למערכת המולטימדיה, האפליקציה שולחת את הקוד ישירות לפוינטר ברקע. בסיום נשמע צליל אישור ומתקבלת התראה שהקודן נוטרל."
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                GuideSectionItem(
+                    icon = "📱",
+                    title = "הפעלה ידנית וקיצור דרך",
+                    body = "לחיצה על כפתור 'נטרל קודן עכשיו' באפליקציה או לחיצה על קיצור הדרך במסך הבית שולחת את הקוד באופן מיידי ללא עיכוב."
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                GuideSectionItem(
+                    icon = "🛡️",
+                    title = "חוקי מניעת כפילויות",
+                    body = "• ניטרול יחיד בנסיעה: כל זמן שחיבור הבלוטות' לרכב פעיל, הקוד יישלח פעם אחת בלבד.\n• השהיית 15 דקות: בפתיחת האפליקציה, הקוד לא יישלח שוב אם כבר נשלח בהצלחה ברבע השעה האחרונה."
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                GuideSectionItem(
+                    icon = "🚙",
+                    title = "תמיכה ב-Android Auto",
+                    body = "האפליקציה מציגה התראות חיות על גבי מסך הרכב ב-Android Auto. אם קיימת בעיית קליטה בכניסה לרכב, מופיעה התראה עם כפתור לניסיון חוזר ישירות ממסך הרכב."
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                GuideSectionItem(
+                    icon = "🔒",
+                    title = "פרטיות ואבטחה מלאה",
+                    body = "מספר הרכב והקוד מוצפנים ונשמרים אך ורק במכשיר שלך. הם אינם נשלחים לאף שרת למעט שרתי פוינטר לצורך פתיחת הרכב."
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text("הבנתי, תודה", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            }
+        }
+    )
+}
+
+@Composable
+fun GuideSectionItem(
+    icon: String,
+    title: String,
+    body: String
+) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = Color(0xFFF8FAFC),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(text = icon, fontSize = 18.sp)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = title,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    color = PointerDark
+                )
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = body,
+                fontSize = 12.5.sp,
+                color = Color(0xFF334155),
+                lineHeight = 17.sp
+            )
         }
     }
 }
@@ -1804,7 +1938,7 @@ fun DiagnosticLogsDialog(
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
                         shape = RoundedCornerShape(10.dp)
                     ) {
-                        Text("העתק ללוח 📋", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text("העתק ללוח 📋", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White)
                     }
                     Spacer(modifier = Modifier.width(6.dp))
                     OutlinedButton(
@@ -1839,5 +1973,3 @@ fun formatRelativeTime(timestamp: Long): String {
         else -> "לפני $days ימים"
     }
 }
-
-
