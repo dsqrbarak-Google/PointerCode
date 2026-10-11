@@ -28,15 +28,14 @@ class BluetoothReceiver : BroadcastReceiver() {
         val isAclDisconnected = action == BluetoothDevice.ACTION_ACL_DISCONNECTED
         val isA2dpConnected = action == BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED &&
                 intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1) == BluetoothProfile.STATE_CONNECTED
-        val isA2dpDisconnected = action == BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED &&
-                intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1) == BluetoothProfile.STATE_DISCONNECTED
         val isHeadsetConnected = action == BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED &&
                 intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1) == BluetoothProfile.STATE_CONNECTED
 
         val isAnyConnection = isAclConnected || isA2dpConnected || isHeadsetConnected
-        val isAnyDisconnection = isAclDisconnected || isA2dpDisconnected
 
-        if (!isAnyConnection && !isAnyDisconnection) {
+        // Note: ONLY physical Bluetooth ACL disconnection indicates vehicle shutdown / walkaway.
+        // Audio profile state changes (e.g. A2DP pause) must NOT end the drive session!
+        if (!isAnyConnection && !isAclDisconnected) {
             return
         }
 
@@ -79,33 +78,57 @@ class BluetoothReceiver : BroadcastReceiver() {
         }
 
         if (!addressMatches && !nameMatches) {
-            // Unrelated bluetooth device (e.g. smart watch, home speaker)
+            // Unrelated bluetooth device
             return
         }
 
         val resolvedName = candidateNames.firstOrNull() ?: targetName
         AppLogger.i("BluetoothReceiver", "Matched vehicle BT: '$resolvedName' (action=$action)")
 
-        if (isAnyDisconnection) {
-            // Vehicle Bluetooth disconnected -> Drive session ended!
-            AppLogger.i("BluetoothReceiver", "Vehicle BT disconnected -> Resetting drive session state.")
+        if (isAclDisconnected) {
+            // Physical Bluetooth disconnect -> Drive ended!
+            AppLogger.i("BluetoothReceiver", "Vehicle BT physically disconnected -> Drive session ended.")
             prefs.setVehicleBtConnected(false)
-            prefs.setCurrentDriveDisarmed(false)
+            prefs.setCurrentDriveSessionId(0L)
+            prefs.setDisarmedDriveSessionId(0L)
             return
         }
 
         if (isAnyConnection) {
-            // Vehicle Bluetooth connected -> Mark drive active
             prefs.setVehicleBtConnected(true)
 
-            val sourceLabel = if (resolvedName.isNotBlank()) "בלוטות' ($resolvedName)" else "בלוטות' ברכב"
+            // Start a new session if physical connection (ACL_CONNECTED) or no session exists
+            var sessionId = prefs.getCurrentDriveSessionId()
+            if (isAclConnected || sessionId == 0L) {
+                sessionId = System.currentTimeMillis()
+                prefs.setCurrentDriveSessionId(sessionId)
+                AppLogger.i("BluetoothReceiver", "Started new drive session: $sessionId for '$resolvedName'")
+            }
 
-            // Delegate to unified DisarmManager for atomic execution & duplicate suppression
+            // Check if this drive session was already disarmed
+            val disarmedSessionId = prefs.getDisarmedDriveSessionId()
+            if (sessionId != 0L && sessionId == disarmedSessionId) {
+                AppLogger.w("BluetoothReceiver", "Suppressed: Drive session $sessionId already disarmed (BT still connected)")
+                return
+            }
+
+            // Short debounce (60 seconds) to avoid duplicate sends on rapid bluetooth reconnects
+            val now = System.currentTimeMillis()
+            val lastBtDisarm = prefs.getLastBtDisarmTime()
+            if (now - lastBtDisarm < 60_000L) {
+                AppLogger.w("BluetoothReceiver", "Suppressed by BT debounce: Last BT disarm was ${(now - lastBtDisarm) / 1000}s ago (< 60s)")
+                return
+            }
+
+            val sourceLabel = if (resolvedName.isNotBlank()) "בלוטות' ($resolvedName)" else "בלוטות' ברכב"
+            AppLogger.i("BluetoothReceiver", "Triggering BT disarm: source='$sourceLabel', session=$sessionId")
+
             DisarmManager.triggerDisarm(
                 context = context,
                 prefs = prefs,
                 source = sourceLabel,
-                forceManual = false
+                forceManual = false,
+                driveSessionId = sessionId
             )
         }
     }

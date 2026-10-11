@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Unified, atomic disarming manager.
  * Single source of truth for:
  * 1. Concurrency control (prevents race conditions across Bluetooth, shortcuts, and manual triggers).
- * 2. Deduplication (strictly enforces 15-minute cooldown and single-send per drive session while BT is connected).
+ * 2. Deduplication (strictly enforces 15-minute cooldown for app/shortcuts and single-send per drive session for BT).
  * 3. Exponential backoff retry on communication failures (4 attempts: immediate, 3s, 6s, 12s).
  * 4. Diagnostics logging and state persistence.
  */
@@ -21,7 +21,7 @@ object DisarmManager {
 
     private val isExecuting = AtomicBoolean(false)
     const val SUCCESS_COOLDOWN_MS = 15 * 60 * 1000L   // 15 minutes cooldown after successful disarm
-    private const val RAPID_COOLDOWN_MS = 5_000L       // 5 seconds rapid debounce between broadcasts
+    private const val RAPID_COOLDOWN_MS = 3_000L       // 3 seconds rapid debounce between broadcasts
 
     fun isDisarmInProgress(): Boolean = isExecuting.get()
 
@@ -32,6 +32,7 @@ object DisarmManager {
      * @param prefs User preferences
      * @param source Name of the trigger source (e.g. "בלוטות' (XPENG)", "מסך הטלפון")
      * @param forceManual True when explicitly requested by user via UI button tap
+     * @param driveSessionId Non-zero when triggered by Bluetooth to track the active drive session
      * @param onComplete Optional callback on main thread with the final result
      */
     fun triggerDisarm(
@@ -39,13 +40,14 @@ object DisarmManager {
         prefs: PointerPreferences,
         source: String,
         forceManual: Boolean = false,
+        driveSessionId: Long = 0L,
         onComplete: ((PointerResult) -> Unit)? = null
     ) {
         val vNumber = prefs.getVehicleNumber().trim()
         val code = prefs.getPointerCode().trim()
         val driverName = prefs.getDriverName().trim()
 
-        AppLogger.i("DisarmManager", "Trigger requested: source='$source', forceManual=$forceManual, vehicle='$vNumber'")
+        AppLogger.i("DisarmManager", "Trigger requested: source='$source', forceManual=$forceManual, session=$driveSessionId, vehicle='$vNumber'")
 
         if (vNumber.isBlank() || code.length != 4) {
             val err = PointerResult.Failure("פרטי רכב חסרים או קוד שגוי", -1)
@@ -65,35 +67,40 @@ object DisarmManager {
         val lastSuccessTime = prefs.getLastSuccessfulDisarmTime()
 
         if (!forceManual) {
-            // 1. Rapid debounce (5 seconds) across any simultaneous broadcast intents
+            // 1. Rapid debounce (3 seconds) across simultaneous broadcast intents
             if (now - lastDisarmTime < RAPID_COOLDOWN_MS) {
                 AppLogger.w("DisarmManager", "Suppressed by rapid debounce (${now - lastDisarmTime}ms < ${RAPID_COOLDOWN_MS}ms)")
                 isExecuting.set(false)
                 return
             }
 
-            // 2. Active Drive Session Deduplication: "לא לשלוח יותר מפעם אחת בנסיעה (כל זמן שה-BT עדיין מחובר)"
-            if (prefs.isVehicleBtConnected() && prefs.isCurrentDriveDisarmed()) {
-                AppLogger.w("DisarmManager", "Suppressed: Already successfully disarmed during this active drive session (BT connected)!")
-                isExecuting.set(false)
-                return
-            }
-
-            // 3. 15-Minute Global Cooldown: "אם נשלח בהצלחה ברבע שעה אחרונה"
-            val timeSinceSuccess = now - lastSuccessTime
-            if (lastSuccessTime > 0 && timeSinceSuccess < SUCCESS_COOLDOWN_MS) {
-                val secRemaining = (SUCCESS_COOLDOWN_MS - timeSinceSuccess) / 1000
-                AppLogger.w("DisarmManager", "Suppressed by 15-min cooldown: Disarmed successfully ${timeSinceSuccess / 1000}s ago ($secRemaining sec remaining)")
-                isExecuting.set(false)
-                return
+            // 2. Bluetooth Drive Session Deduplication: "לא לשלוח יותר מפעם אחת בנסיעה (כל זמן שה-BT עדיין מחובר)"
+            if (driveSessionId != 0L) {
+                val disarmedSession = prefs.getDisarmedDriveSessionId()
+                if (driveSessionId == disarmedSession) {
+                    AppLogger.w("DisarmManager", "Suppressed: Drive session $driveSessionId was already successfully disarmed (BT connected)!")
+                    isExecuting.set(false)
+                    return
+                }
+            } else {
+                // 3. Global 15-Minute Cooldown for app launch / shortcuts: "אם נשלח בהצלחה ברבע שעה אחרונה"
+                val timeSinceSuccess = now - lastSuccessTime
+                if (lastSuccessTime > 0 && timeSinceSuccess < SUCCESS_COOLDOWN_MS) {
+                    val secRemaining = (SUCCESS_COOLDOWN_MS - timeSinceSuccess) / 1000
+                    AppLogger.w("DisarmManager", "Suppressed by 15-min cooldown: Disarmed successfully ${timeSinceSuccess / 1000}s ago ($secRemaining sec remaining)")
+                    isExecuting.set(false)
+                    return
+                }
             }
         } else {
             AppLogger.i("DisarmManager", "Bypassing cooldowns: forceManual=true")
         }
 
-        // Record start timestamp
+        // Record attempt timestamp
         prefs.setLastDisarmTime(now)
-        prefs.setLastBtDisarmTime(now)
+        if (driveSessionId != 0L) {
+            prefs.setLastBtDisarmTime(now)
+        }
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -142,7 +149,10 @@ object DisarmManager {
                         AppLogger.i("DisarmManager", "DISARM SUCCESS: ${finalResult.message}")
                         prefs.setLastSuccessfulDisarmTime(executionTime)
                         prefs.setLastDisarmTime(executionTime)
-                        prefs.setCurrentDriveDisarmed(true)
+                        if (driveSessionId != 0L) {
+                            prefs.setDisarmedDriveSessionId(driveSessionId)
+                            prefs.setLastBtDisarmTime(executionTime)
+                        }
                         prefs.addDisarmHistory(
                             DisarmHistoryEntry(
                                 timestamp = executionTime,

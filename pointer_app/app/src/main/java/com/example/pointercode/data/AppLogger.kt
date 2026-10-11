@@ -29,7 +29,7 @@ object AppLogger {
         if (appContext == null) {
             appContext = context.applicationContext
             loadPersistedLogs()
-            i("SYSTEM", "=== App started (v1.3.8) ===")
+            i("SYSTEM", "=== App started (v1.3.9) ===")
         }
     }
 

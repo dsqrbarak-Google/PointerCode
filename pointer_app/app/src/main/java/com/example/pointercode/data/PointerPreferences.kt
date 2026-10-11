@@ -24,7 +24,8 @@ class PointerPreferences(context: Context) {
         private const val KEY_LAST_DISARM_TIME = "last_disarm_time"
         private const val KEY_LAST_SUCCESSFUL_DISARM_TIME = "last_successful_disarm_time"
         private const val KEY_IS_VEHICLE_BT_CONNECTED = "is_vehicle_bt_connected"
-        private const val KEY_CURRENT_DRIVE_DISARMED = "current_drive_disarmed"
+        private const val KEY_CURRENT_DRIVE_SESSION_ID = "current_drive_session_id"
+        private const val KEY_DISARMED_DRIVE_SESSION_ID = "disarmed_drive_session_id"
         private const val KEY_DISARM_HISTORY = "disarm_history"
     }
 
@@ -93,10 +94,16 @@ class PointerPreferences(context: Context) {
         prefs.edit().putBoolean(KEY_IS_VEHICLE_BT_CONNECTED, connected).apply()
     }
 
-    fun isCurrentDriveDisarmed(): Boolean = prefs.getBoolean(KEY_CURRENT_DRIVE_DISARMED, false)
+    fun getCurrentDriveSessionId(): Long = prefs.getLong(KEY_CURRENT_DRIVE_SESSION_ID, 0L)
 
-    fun setCurrentDriveDisarmed(disarmed: Boolean) {
-        prefs.edit().putBoolean(KEY_CURRENT_DRIVE_DISARMED, disarmed).apply()
+    fun setCurrentDriveSessionId(id: Long) {
+        prefs.edit().putLong(KEY_CURRENT_DRIVE_SESSION_ID, id).apply()
+    }
+
+    fun getDisarmedDriveSessionId(): Long = prefs.getLong(KEY_DISARMED_DRIVE_SESSION_ID, 0L)
+
+    fun setDisarmedDriveSessionId(id: Long) {
+        prefs.edit().putLong(KEY_DISARMED_DRIVE_SESSION_ID, id).apply()
     }
 
     fun getDisarmHistory(): List<DisarmHistoryEntry> {
