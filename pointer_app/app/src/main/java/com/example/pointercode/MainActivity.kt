@@ -49,6 +49,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        com.example.pointercode.data.AppLogger.init(applicationContext)
+        com.example.pointercode.data.AppLogger.i("MainActivity", "onCreate called, action=${intent?.action}")
         enableEdgeToEdge()
 
         checkAndRequestPermissions()
@@ -85,7 +87,16 @@ class MainActivity : ComponentActivity() {
         if (intent.getBooleanExtra("OPEN_SETUP", false)) {
             viewModel.openSetup()
         } else if (intent.getBooleanExtra("AUTO_DISARM", false)) {
-            viewModel.disarmNow(source = "קיצור דרך", onFinish = { finish() })
+            val lastSuccess = preferences.getLastSuccessfulDisarmTime()
+            val timePassed = System.currentTimeMillis() - lastSuccess
+            if (lastSuccess > 0 && timePassed < com.example.pointercode.data.DisarmManager.SUCCESS_COOLDOWN_MS) {
+                val minAgo = (timePassed / 60000L).coerceAtLeast(1)
+                com.example.pointercode.data.AppLogger.i("MainActivity", "Shortcut launch suppressed by 15-min cooldown ($minAgo min ago)")
+                android.widget.Toast.makeText(this, "קודן פוינטר כבר נוטרל בהצלחה לפני $minAgo דק'", android.widget.Toast.LENGTH_SHORT).show()
+                finish()
+            } else {
+                viewModel.disarmNow(source = "קיצור דרך", onFinish = { finish() })
+            }
         }
     }
 

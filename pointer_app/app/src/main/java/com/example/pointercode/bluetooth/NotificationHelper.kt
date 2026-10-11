@@ -14,6 +14,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.pointercode.MainActivity
 import com.example.pointercode.R
+import com.example.pointercode.data.AppLogger
 
 object NotificationHelper {
     private const val CHANNEL_ID = "pointer_bt_channel"
@@ -66,6 +67,9 @@ object NotificationHelper {
         val title = "מנטרל קודן רכב $formattedVehicle..."
         val text = if (deviceName.isNotBlank()) "זוהה חיבור ל-$deviceName • שולח קוד לפוינטר" else "שולח קוד לפוינטר..."
 
+        val carExtender = NotificationCompat.CarExtender()
+            .setColor(0xFF0284C7.toInt())
+
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_pointer)
             .setContentTitle(title)
@@ -76,12 +80,14 @@ object NotificationHelper {
             .setAutoCancel(true)
             .setContentIntent(getPendingIntent(context))
             .setProgress(0, 0, true)
+            .extend(carExtender)
             .build()
 
         try {
             NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
-        } catch (_: Throwable) {
-            // Never crash if notifications fail or cannot be posted
+            AppLogger.d("NotificationHelper", "Posted disarming notification")
+        } catch (t: Throwable) {
+            AppLogger.w("NotificationHelper", "Could not post disarming notification: ${t.message}")
         }
     }
 
@@ -89,19 +95,24 @@ object NotificationHelper {
         context: Context,
         vehicleNumber: String,
         deviceName: String,
-        statusText: String = "התקשורת עדיין לא הצליחה • מתבצע ניסיון נוסף..."
+        attempt: Int,
+        maxAttempts: Int,
+        waitSec: Long
     ) {
         createNotificationChannel(context)
         val formattedVehicle = formatVehicleNumber(vehicleNumber)
-        val title = "⚠️ התקשורת ברכב עדיין לא הצליחה"
+        val title = "⚠️ בעיית תקשורת ברכב ($attempt/$maxAttempts)"
+        val statusText = "ניסיון חוזר בעוד $waitSec שניות..."
+        val fullText = "רכב $formattedVehicle: שרת פוינטר טרם הגיב. ניסיון נוסף ($attempt/$maxAttempts) בעוד $waitSec שניות."
 
         val retryAction = NotificationCompat.Action.Builder(
             R.drawable.ic_stat_pointer,
-            "נסה שוב כעת",
+            "נסה כעת",
             getRetryPendingIntent(context)
         ).build()
 
-        val fullText = "רכב $formattedVehicle: $statusText"
+        val carExtender = NotificationCompat.CarExtender()
+            .setColor(0xFFF59E0B.toInt())
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_pointer)
@@ -114,12 +125,14 @@ object NotificationHelper {
             .setContentIntent(getPendingIntent(context))
             .addAction(retryAction)
             .setProgress(0, 0, true)
+            .extend(carExtender)
             .build()
 
         try {
             NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
-        } catch (_: Throwable) {
-            // Never crash if notifications fail
+            AppLogger.d("NotificationHelper", "Posted retry notification ($attempt/$maxAttempts)")
+        } catch (t: Throwable) {
+            AppLogger.w("NotificationHelper", "Could not post retry notification: ${t.message}")
         }
     }
 
@@ -130,6 +143,9 @@ object NotificationHelper {
         val text = "רכב $formattedVehicle: $message • נסיעה טובה!"
 
         val defaultSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+
+        val carExtender = NotificationCompat.CarExtender()
+            .setColor(0xFF2E7D32.toInt())
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_pointer)
@@ -142,26 +158,31 @@ object NotificationHelper {
             .setVibrate(longArrayOf(0, 150, 100, 250))
             .setAutoCancel(true)
             .setContentIntent(getPendingIntent(context))
+            .extend(carExtender)
             .build()
 
         try {
             NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
-        } catch (_: Throwable) {
-            // Never crash if notifications fail
+            AppLogger.d("NotificationHelper", "Posted success notification")
+        } catch (t: Throwable) {
+            AppLogger.w("NotificationHelper", "Could not post success notification: ${t.message}")
         }
     }
 
     fun showErrorNotification(context: Context, vehicleNumber: String, errorMsg: String) {
         createNotificationChannel(context)
         val formattedVehicle = formatVehicleNumber(vehicleNumber)
-        val title = "התקשורת ברכב עדיין לא הצליחה ⚠️"
-        val text = "רכב $formattedVehicle: $errorMsg. לחץ לניסיון חוזר או פתח ב-Android Auto."
+        val title = "התקשורת ברכב לא הצליחה ⚠️"
+        val text = "רכב $formattedVehicle: $errorMsg. לחץ לניסיון חוזר."
 
         val retryAction = NotificationCompat.Action.Builder(
             R.drawable.ic_stat_pointer,
             "נסה שוב כעת",
             getRetryPendingIntent(context)
         ).build()
+
+        val carExtender = NotificationCompat.CarExtender()
+            .setColor(0xFFE44126.toInt())
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_pointer)
@@ -173,12 +194,14 @@ object NotificationHelper {
             .setAutoCancel(true)
             .setContentIntent(getPendingIntent(context))
             .addAction(retryAction)
+            .extend(carExtender)
             .build()
 
         try {
             NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
-        } catch (_: Throwable) {
-            // Never crash if notifications fail
+            AppLogger.d("NotificationHelper", "Posted error notification")
+        } catch (t: Throwable) {
+            AppLogger.w("NotificationHelper", "Could not post error notification: ${t.message}")
         }
     }
 

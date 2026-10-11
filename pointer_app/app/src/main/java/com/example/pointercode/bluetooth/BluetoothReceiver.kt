@@ -8,11 +8,13 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import com.example.pointercode.data.AppLogger
 import com.example.pointercode.data.DisarmManager
 import com.example.pointercode.data.PointerPreferences
 
 /**
- * Listens for vehicle Bluetooth connection events and automatically disarms Pointer code.
+ * Listens for vehicle Bluetooth connection and disconnection events.
+ * Manages active drive session state and automatically disarms Pointer code.
  */
 class BluetoothReceiver : BroadcastReceiver() {
 
@@ -20,14 +22,21 @@ class BluetoothReceiver : BroadcastReceiver() {
         if (intent == null) return
         val action = intent.action ?: return
 
-        // Verify action is one of our interested Bluetooth connection events
+        AppLogger.init(context)
+
         val isAclConnected = action == BluetoothDevice.ACTION_ACL_CONNECTED
+        val isAclDisconnected = action == BluetoothDevice.ACTION_ACL_DISCONNECTED
         val isA2dpConnected = action == BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED &&
                 intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1) == BluetoothProfile.STATE_CONNECTED
+        val isA2dpDisconnected = action == BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED &&
+                intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1) == BluetoothProfile.STATE_DISCONNECTED
         val isHeadsetConnected = action == BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED &&
                 intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1) == BluetoothProfile.STATE_CONNECTED
 
-        if (!isAclConnected && !isA2dpConnected && !isHeadsetConnected) {
+        val isAnyConnection = isAclConnected || isA2dpConnected || isHeadsetConnected
+        val isAnyDisconnection = isAclDisconnected || isA2dpDisconnected
+
+        if (!isAnyConnection && !isAnyDisconnection) {
             return
         }
 
@@ -55,7 +64,7 @@ class BluetoothReceiver : BroadcastReceiver() {
             try { rawDevice.alias?.takeIf { it.isNotBlank() } } catch (_: SecurityException) { null }
         } else null
 
-        // 1. MAC Address matching (normalized: case-insensitive, colons and hyphens stripped)
+        // 1. MAC Address matching (normalized: colons and hyphens stripped)
         val cleanTargetAddress = targetAddress.replace(":", "").replace("-", "").trim()
         val cleanDeviceAddress = (deviceAddress ?: "").replace(":", "").replace("-", "").trim()
         val addressMatches = cleanTargetAddress.isNotBlank() &&
@@ -70,18 +79,34 @@ class BluetoothReceiver : BroadcastReceiver() {
         }
 
         if (!addressMatches && !nameMatches) {
+            // Unrelated bluetooth device (e.g. smart watch, home speaker)
             return
         }
 
         val resolvedName = candidateNames.firstOrNull() ?: targetName
-        val sourceLabel = if (resolvedName.isNotBlank()) "בלוטות' ($resolvedName)" else "בלוטות' ברכב"
+        AppLogger.i("BluetoothReceiver", "Matched vehicle BT: '$resolvedName' (action=$action)")
 
-        // Delegate to unified DisarmManager for atomic execution & duplicate suppression
-        DisarmManager.triggerDisarm(
-            context = context,
-            prefs = prefs,
-            source = sourceLabel,
-            forceManual = false
-        )
+        if (isAnyDisconnection) {
+            // Vehicle Bluetooth disconnected -> Drive session ended!
+            AppLogger.i("BluetoothReceiver", "Vehicle BT disconnected -> Resetting drive session state.")
+            prefs.setVehicleBtConnected(false)
+            prefs.setCurrentDriveDisarmed(false)
+            return
+        }
+
+        if (isAnyConnection) {
+            // Vehicle Bluetooth connected -> Mark drive active
+            prefs.setVehicleBtConnected(true)
+
+            val sourceLabel = if (resolvedName.isNotBlank()) "בלוטות' ($resolvedName)" else "בלוטות' ברכב"
+
+            // Delegate to unified DisarmManager for atomic execution & duplicate suppression
+            DisarmManager.triggerDisarm(
+                context = context,
+                prefs = prefs,
+                source = sourceLabel,
+                forceManual = false
+            )
+        }
     }
 }

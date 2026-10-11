@@ -12,16 +12,16 @@ import java.util.concurrent.atomic.AtomicBoolean
 /**
  * Unified, atomic disarming manager.
  * Single source of truth for:
- * 1. Concurrency control (prevents race conditions across Bluetooth, Android Auto, and manual triggers).
- * 2. Deduplication (strictly enforces cooldowns to prevent double sends).
- * 3. Smart retry on network failures.
- * 4. State updates and persistence.
+ * 1. Concurrency control (prevents race conditions across Bluetooth, shortcuts, and manual triggers).
+ * 2. Deduplication (strictly enforces 15-minute cooldown and single-send per drive session while BT is connected).
+ * 3. Exponential backoff retry on communication failures (4 attempts: immediate, 3s, 6s, 12s).
+ * 4. Diagnostics logging and state persistence.
  */
 object DisarmManager {
 
     private val isExecuting = AtomicBoolean(false)
-    private const val SUCCESS_COOLDOWN_MS = 60_000L   // 60 seconds cooldown after successful disarm
-    private const val RAPID_COOLDOWN_MS = 5_000L     // 5 seconds cooldown between any rapid attempts
+    const val SUCCESS_COOLDOWN_MS = 15 * 60 * 1000L   // 15 minutes cooldown after successful disarm
+    private const val RAPID_COOLDOWN_MS = 5_000L       // 5 seconds rapid debounce between broadcasts
 
     fun isDisarmInProgress(): Boolean = isExecuting.get()
 
@@ -30,8 +30,8 @@ object DisarmManager {
      *
      * @param context Application context
      * @param prefs User preferences
-     * @param source Name of the trigger source (e.g. "בלוטות' (XPENG)", "מסך הרכב (Android Auto)")
-     * @param forceManual True when explicitly requested by user (e.g. screen tap, app button, shortcut)
+     * @param source Name of the trigger source (e.g. "בלוטות' (XPENG)", "מסך הטלפון")
+     * @param forceManual True when explicitly requested by user via UI button tap
      * @param onComplete Optional callback on main thread with the final result
      */
     fun triggerDisarm(
@@ -45,65 +45,90 @@ object DisarmManager {
         val code = prefs.getPointerCode().trim()
         val driverName = prefs.getDriverName().trim()
 
+        AppLogger.i("DisarmManager", "Trigger requested: source='$source', forceManual=$forceManual, vehicle='$vNumber'")
+
         if (vNumber.isBlank() || code.length != 4) {
             val err = PointerResult.Failure("פרטי רכב חסרים או קוד שגוי", -1)
+            AppLogger.w("DisarmManager", "Aborted: Missing vehicle number or code is not 4 digits")
             onComplete?.invoke(err)
             return
         }
 
         // Concurrency Guard: Atomic lock prevents multiple coroutines executing simultaneously
         if (!isExecuting.compareAndSet(false, true)) {
-            // Already executing a disarm request in-flight right now! Drop duplicate.
+            AppLogger.w("DisarmManager", "Dropped: Another disarm request is currently executing in-flight!")
             return
         }
 
         val now = System.currentTimeMillis()
         val lastDisarmTime = prefs.getLastDisarmTime()
-        val latestHistory = prefs.getDisarmHistory().firstOrNull()
+        val lastSuccessTime = prefs.getLastSuccessfulDisarmTime()
 
         if (!forceManual) {
-            // Check rapid debounce (5 seconds across all broadcast receivers)
+            // 1. Rapid debounce (5 seconds) across any simultaneous broadcast intents
             if (now - lastDisarmTime < RAPID_COOLDOWN_MS) {
+                AppLogger.w("DisarmManager", "Suppressed by rapid debounce (${now - lastDisarmTime}ms < ${RAPID_COOLDOWN_MS}ms)")
                 isExecuting.set(false)
                 return
             }
 
-            // Check success cooldown (60 seconds if already successfully disarmed recently)
-            if (latestHistory?.success == true && (now - lastDisarmTime < SUCCESS_COOLDOWN_MS)) {
+            // 2. Active Drive Session Deduplication: "לא לשלוח יותר מפעם אחת בנסיעה (כל זמן שה-BT עדיין מחובר)"
+            if (prefs.isVehicleBtConnected() && prefs.isCurrentDriveDisarmed()) {
+                AppLogger.w("DisarmManager", "Suppressed: Already successfully disarmed during this active drive session (BT connected)!")
                 isExecuting.set(false)
                 return
             }
+
+            // 3. 15-Minute Global Cooldown: "אם נשלח בהצלחה ברבע שעה אחרונה"
+            val timeSinceSuccess = now - lastSuccessTime
+            if (lastSuccessTime > 0 && timeSinceSuccess < SUCCESS_COOLDOWN_MS) {
+                val secRemaining = (SUCCESS_COOLDOWN_MS - timeSinceSuccess) / 1000
+                AppLogger.w("DisarmManager", "Suppressed by 15-min cooldown: Disarmed successfully ${timeSinceSuccess / 1000}s ago ($secRemaining sec remaining)")
+                isExecuting.set(false)
+                return
+            }
+        } else {
+            AppLogger.i("DisarmManager", "Bypassing cooldowns: forceManual=true")
         }
 
-        // Immediately update persistent timestamps to block any race condition
+        // Record start timestamp
         prefs.setLastDisarmTime(now)
         prefs.setLastBtDisarmTime(now)
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // Show in-progress notification on phone
+                // Show in-progress notification on phone and car
                 NotificationHelper.showDisarmingNotification(context, vNumber, source)
 
                 var attempt = 1
-                val maxAttempts = 3
+                val maxAttempts = 4
                 var result: PointerResult? = null
 
+                // Retry loop with exponential backoff: 3s, 6s, 12s
+                val retryDelays = longArrayOf(3000L, 6000L, 12000L)
+
                 while (attempt <= maxAttempts) {
+                    AppLogger.i("DisarmManager", "Attempt $attempt/$maxAttempts: Contacting Pointer API for vehicle $vNumber...")
                     result = PointerApi.checkCode(vNumber, code, driverName)
 
                     val isNetworkError = result is PointerResult.NetworkError ||
                             (result is PointerResult.Failure && result.rc == -99)
 
                     if (!isNetworkError || attempt == maxAttempts) {
+                        AppLogger.i("DisarmManager", "Attempt $attempt completed with result: $result")
                         break
                     }
 
-                    val delayMs = 3000L * attempt
+                    val delayMs = retryDelays.getOrElse(attempt - 1) { 10000L }
+                    AppLogger.w("DisarmManager", "Attempt $attempt failed with network error ($result). Retrying in ${delayMs / 1000}s...")
+
                     NotificationHelper.showRetryingNotification(
                         context,
                         vNumber,
                         source,
-                        "ניסיון תקשורת נוסף ($attempt/$maxAttempts)..."
+                        attempt,
+                        maxAttempts,
+                        delayMs / 1000
                     )
                     delay(delayMs)
                     attempt++
@@ -114,7 +139,10 @@ object DisarmManager {
 
                 when (finalResult) {
                     is PointerResult.Success -> {
+                        AppLogger.i("DisarmManager", "DISARM SUCCESS: ${finalResult.message}")
+                        prefs.setLastSuccessfulDisarmTime(executionTime)
                         prefs.setLastDisarmTime(executionTime)
+                        prefs.setCurrentDriveDisarmed(true)
                         prefs.addDisarmHistory(
                             DisarmHistoryEntry(
                                 timestamp = executionTime,
@@ -127,6 +155,8 @@ object DisarmManager {
                         NotificationHelper.triggerHaptic(context)
                     }
                     is PointerResult.Failure -> {
+                        AppLogger.e("DisarmManager", "DISARM FAILURE (rc=${finalResult.rc}): ${finalResult.message}")
+                        prefs.setLastDisarmTime(executionTime)
                         prefs.addDisarmHistory(
                             DisarmHistoryEntry(
                                 timestamp = executionTime,
@@ -139,6 +169,8 @@ object DisarmManager {
                     }
                     is PointerResult.NetworkError -> {
                         val msg = "בעיית קליטה ברכב (${finalResult.errorMsg})"
+                        AppLogger.e("DisarmManager", "DISARM NETWORK ERROR: $msg", finalResult.throwable)
+                        prefs.setLastDisarmTime(executionTime)
                         prefs.addDisarmHistory(
                             DisarmHistoryEntry(
                                 timestamp = executionTime,
@@ -156,6 +188,7 @@ object DisarmManager {
                 }
 
             } catch (t: Throwable) {
+                AppLogger.e("DisarmManager", "Unexpected exception during disarm", t)
                 val err = PointerResult.Failure("שגיאה: ${t.localizedMessage ?: "שגיאה לא ידועה"}", -1)
                 withContext(Dispatchers.Main) {
                     onComplete?.invoke(err)

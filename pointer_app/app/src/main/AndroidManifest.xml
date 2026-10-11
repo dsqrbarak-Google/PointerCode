@@ -51,54 +51,16 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.bluetooth.device.action.ACL_CONNECTED" />
+                <action android:name="android.bluetooth.device.action.ACL_DISCONNECTED" />
                 <action android:name="android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED" />
                 <action android:name="android.bluetooth.headset.profile.action.CONNECTION_STATE_CHANGED" />
             </intent-filter>
         </receiver>
 
-        <!-- Android Auto Meta-Data -->
+        <!-- Android Auto Meta-Data for Native Car Screen Notifications -->
         <meta-data
             android:name="com.google.android.gms.car.application"
             android:resource="@xml/automotive_app_desc" />
-        <meta-data
-            android:name="androidx.car.app.minCarApiLevel"
-            android:value="1" />
-
-        <!-- Android Auto CarAppService (Interactive UI on Car Touch Screen) -->
-        <service
-            android:name=".car.PointerCarAppService"
-            android:exported="true"
-            android:label="@string/app_name"
-            android:icon="@mipmap/ic_launcher">
-            <intent-filter>
-                <action android:name="androidx.car.app.CarAppService" />
-                <category android:name="androidx.car.app.category.IOT" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="androidx.car.app.CarAppService" />
-                <category android:name="androidx.car.app.category.POI" />
-            </intent-filter>
-        </service>
-
-        <!-- Android Auto Media Browser Service -->
-        <service
-            android:name=".car.PointerMediaBrowserService"
-            android:exported="true"
-            android:label="@string/app_name"
-            android:icon="@mipmap/ic_launcher">
-            <intent-filter>
-                <action android:name="android.media.browse.MediaBrowserService" />
-            </intent-filter>
-        </service>
-
-        <!-- Android Auto Connection State Receiver -->
-        <receiver
-            android:name=".car.CarConnectionReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="androidx.car.app.connection.action.CAR_CONNECTION_UPDATED" />
-            </intent-filter>
-        </receiver>
 
         <!-- Quick Retry Action from Notification -->
         <receiver

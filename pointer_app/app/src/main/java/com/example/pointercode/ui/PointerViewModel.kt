@@ -61,7 +61,9 @@ data class PointerUiState(
     val pairedDevices: List<BluetoothDeviceInfo> = emptyList(),
     val showBtDevicePicker: Boolean = false,
     val disarmHistory: List<DisarmHistoryEntry> = emptyList(),
-    val recentlyDisarmedNotice: String? = null
+    val recentlyDisarmedNotice: String? = null,
+    val showLogsDialog: Boolean = false,
+    val logsText: String = ""
 )
 
 class PointerViewModel(
@@ -92,31 +94,34 @@ class PointerViewModel(
 
     init {
         val history = preferences.getDisarmHistory()
-        val lastTime = preferences.getLastDisarmTime()
-        val timePassedMs = System.currentTimeMillis() - lastTime
-        val twoMinutesMs = 2 * 60 * 1000L // 120 seconds
+        val lastSuccessTime = preferences.getLastSuccessfulDisarmTime()
+        val timePassedMs = System.currentTimeMillis() - lastSuccessTime
+        val fifteenMinutesMs = DisarmManager.SUCCESS_COOLDOWN_MS
 
         val latest = history.firstOrNull()
 
         if (preferences.isConfigured()) {
-            if (lastTime > 0 && timePassedMs < twoMinutesMs && latest?.success == true) {
-                // If sent successfully less than 2 minutes ago, don't send again automatically on app launch
+            if (lastSuccessTime > 0 && timePassedMs < fifteenMinutesMs && latest?.success == true) {
+                // If sent successfully less than 15 minutes ago, don't send again automatically on app launch
                 // so the user can verify history and see that BT disarm worked.
-                val secondsAgo = (timePassedMs / 1000).coerceAtLeast(1)
+                val minutesAgo = timePassedMs / 60000L
+                val secondsAgo = (timePassedMs / 1000L) % 60
+                val timeText = if (minutesAgo > 0) "$minutesAgo דק' ו-$secondsAgo שנ'" else "$secondsAgo שנ'"
                 val sourceLabel = latest.source
-                val notice = "הקוד כבר נשלח בהצלחה לפני $secondsAgo שניות ($sourceLabel) • הרכב פתוח"
+                val notice = "הקוד כבר נשלח בהצלחה לפני $timeText ($sourceLabel) • הרכב פתוח"
                 _uiState.value = _uiState.value.copy(
                     disarmHistory = history,
                     recentlyDisarmedNotice = notice
                 )
+                com.example.pointercode.data.AppLogger.i("PointerViewModel", "App opened: disarm suppressed by 15-min cooldown ($timeText ago)")
             } else {
-                // If never sent, sent > 2 min ago, OR previous attempt was a failure:
-                // Automatically send code on launch as requested ("וכמובן משלוח")!
-                val source = if (latest != null && !latest.success && timePassedMs < twoMinutesMs) {
+                // If never sent, sent > 15 min ago, OR previous attempt was a failure:
+                val source = if (latest != null && !latest.success && timePassedMs < fifteenMinutesMs) {
                     "פתיחת אפליקציה (לאחר שגיאה)"
                 } else {
                     "פתיחת אפליקציה"
                 }
+                com.example.pointercode.data.AppLogger.i("PointerViewModel", "App opened: auto-triggering disarm (source=$source)")
                 disarmNow(source = source)
             }
         } else {
@@ -416,5 +421,23 @@ class PointerViewModel(
         ) {
             refreshHistory()
         }
+    }
+
+    fun openLogsDialog() {
+        val logs = com.example.pointercode.data.AppLogger.getAllLogsText()
+        _uiState.value = _uiState.value.copy(showLogsDialog = true, logsText = logs)
+    }
+
+    fun dismissLogsDialog() {
+        _uiState.value = _uiState.value.copy(showLogsDialog = false)
+    }
+
+    fun copyLogsToClipboard(context: Context): Boolean {
+        return com.example.pointercode.data.AppLogger.copyLogsToClipboard(context)
+    }
+
+    fun clearLogs() {
+        com.example.pointercode.data.AppLogger.clearLogs()
+        _uiState.value = _uiState.value.copy(logsText = "אין רישומי יומן עדיין.")
     }
 }

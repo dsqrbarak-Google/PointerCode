@@ -101,7 +101,7 @@ val PointerRed = Color(0xFFE44126)
 val PointerDark = Color(0xFF212121)
 val PlateYellow = Color(0xFFFFD600)
 val SuccessGreen = Color(0xFF2E7D32)
-const val APP_VERSION = "1.3.7"
+const val APP_VERSION = "1.3.8"
 
 @Composable
 fun PointerMainScreen(
@@ -109,6 +109,7 @@ fun PointerMainScreen(
     state: PointerUiState,
     onCloseActivity: () -> Unit
 ) {
+    val context = LocalContext.current
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         when (state.screenMode) {
             is ScreenMode.Disarm -> {
@@ -116,13 +117,14 @@ fun PointerMainScreen(
                     state = state,
                     onDisarmNow = { viewModel.disarmNow(source = "ידני", onFinish = onCloseActivity) },
                     onOpenSetup = { viewModel.openSetup() },
-                    onRequestPinShortcut = { context ->
-                        val res = viewModel.requestPinShortcut(context)
+                    onRequestPinShortcut = { ctx ->
+                        val res = viewModel.requestPinShortcut(ctx)
                         if (res) {
-                            Toast.makeText(context, "קיצור דרך נוסף למסך הבית", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(ctx, "קיצור דרך נוסף למסך הבית", Toast.LENGTH_SHORT).show()
                         }
                     },
-                    onToggleCountdownPause = { viewModel.toggleCountdownPause() }
+                    onToggleCountdownPause = { viewModel.toggleCountdownPause() },
+                    onOpenLogs = { viewModel.openLogsDialog() }
                 )
             }
             is ScreenMode.Setup -> {
@@ -136,7 +138,14 @@ fun PointerMainScreen(
                     onClearBtDevice = viewModel::clearBtDevice,
                     onSimulateBtTrigger = viewModel::simulateBluetoothTrigger,
                     onSave = { viewModel.saveAndDisarm(onCloseActivity) },
-                    onCancel = viewModel::cancelSetup
+                    onCancel = viewModel::cancelSetup,
+                    onOpenLogs = { viewModel.openLogsDialog() },
+                    onCopyLogs = {
+                        val ok = viewModel.copyLogsToClipboard(context)
+                        if (ok) {
+                            Toast.makeText(context, "יומן האבחון הועתק ללוח!", Toast.LENGTH_SHORT).show()
+                        }
+                    }
                 )
             }
         }
@@ -151,6 +160,23 @@ fun PointerMainScreen(
                 onRefresh = { viewModel.refreshPairedDevices() }
             )
         }
+
+        if (state.showLogsDialog) {
+            DiagnosticLogsDialog(
+                logsText = state.logsText,
+                onCopy = {
+                    val ok = viewModel.copyLogsToClipboard(context)
+                    if (ok) {
+                        Toast.makeText(context, "יומן האבחון הועתק ללוח!", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                onClear = {
+                    viewModel.clearLogs()
+                    Toast.makeText(context, "היומן נוקה", Toast.LENGTH_SHORT).show()
+                },
+                onDismiss = { viewModel.dismissLogsDialog() }
+            )
+        }
     }
 }
 
@@ -161,7 +187,8 @@ fun DisarmScreen(
     onDisarmNow: () -> Unit,
     onOpenSetup: () -> Unit,
     onRequestPinShortcut: (android.content.Context) -> Unit,
-    onToggleCountdownPause: () -> Unit
+    onToggleCountdownPause: () -> Unit,
+    onOpenLogs: () -> Unit
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
@@ -205,6 +232,13 @@ fun DisarmScreen(
                     containerColor = PointerDark
                 ),
                 actions = {
+                    IconButton(onClick = onOpenLogs) {
+                        Icon(
+                            imageVector = Icons.Default.History,
+                            contentDescription = "יומן פעולות ואבחון",
+                            tint = Color(0xFF38BDF8)
+                        )
+                    }
                     IconButton(onClick = {
                         val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://barak.rocks/"))
                         context.startActivity(browserIntent)
@@ -834,7 +868,9 @@ fun SetupScreen(
     onClearBtDevice: () -> Unit,
     onSimulateBtTrigger: () -> Unit,
     onSave: () -> Unit,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
+    onOpenLogs: () -> Unit,
+    onCopyLogs: () -> Unit
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
@@ -1322,6 +1358,76 @@ fun SetupScreen(
                 }
             }
 
+            Spacer(modifier = Modifier.height(18.dp))
+
+            // Diagnostics Log Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .background(Color(0xFFFEF3C7), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.History,
+                                contentDescription = null,
+                                tint = Color(0xFFD97706),
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = "יומן פעולות ואבחון (Log)",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = PointerDark
+                            )
+                            Text(
+                                text = "מעקב אחר זיהוי בלוטות', שליחת קוד ותקשורת",
+                                fontSize = 12.sp,
+                                color = Color.Gray
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Button(
+                            onClick = onCopyLogs,
+                            modifier = Modifier.weight(1f).height(44.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("העתק יומן ללוח 📋", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        }
+                        OutlinedButton(
+                            onClick = onOpenLogs,
+                            modifier = Modifier.weight(1f).height(44.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("צפה ביומן מלא", fontSize = 13.sp)
+                        }
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(20.dp))
 
             // Explanation Card
@@ -1618,6 +1724,96 @@ fun BluetoothDevicePickerDialog(
         confirmButton = {
             TextButton(onClick = onDismiss) {
                 Text("ביטול", fontWeight = FontWeight.Bold)
+            }
+        }
+    )
+}
+
+@Composable
+fun DiagnosticLogsDialog(
+    logsText: String,
+    onCopy: () -> Unit,
+    onClear: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val scrollState = rememberScrollState()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "יומן פעולות ואבחון 📋",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp,
+                    color = PointerDark
+                )
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, contentDescription = "סגור", modifier = Modifier.size(20.dp))
+                }
+            }
+        },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "רישום אירועי בלוטות', שליחת קוד ותקשורת רשת במכשיר:",
+                    fontSize = 12.sp,
+                    color = Color.Gray
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0xFF0F172A),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(300.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(scrollState)
+                            .padding(10.dp)
+                    ) {
+                        Text(
+                            text = logsText,
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = Color(0xFF38BDF8),
+                            lineHeight = 15.sp
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(onClick = onClear) {
+                    Text("נקה יומן", color = PointerRed, fontSize = 13.sp)
+                }
+                Row {
+                    Button(
+                        onClick = onCopy,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("העתק ללוח 📋", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+                    Spacer(modifier = Modifier.width(6.dp))
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("סגור", fontSize = 13.sp)
+                    }
+                }
             }
         }
     )

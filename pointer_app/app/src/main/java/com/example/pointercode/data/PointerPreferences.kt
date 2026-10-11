@@ -22,6 +22,9 @@ class PointerPreferences(context: Context) {
         private const val KEY_BT_DEVICE_ADDRESS = "bt_device_address"
         private const val KEY_LAST_BT_DISARM_TIME = "last_bt_disarm_time"
         private const val KEY_LAST_DISARM_TIME = "last_disarm_time"
+        private const val KEY_LAST_SUCCESSFUL_DISARM_TIME = "last_successful_disarm_time"
+        private const val KEY_IS_VEHICLE_BT_CONNECTED = "is_vehicle_bt_connected"
+        private const val KEY_CURRENT_DRIVE_DISARMED = "current_drive_disarmed"
         private const val KEY_DISARM_HISTORY = "disarm_history"
     }
 
@@ -76,6 +79,24 @@ class PointerPreferences(context: Context) {
 
     fun setLastDisarmTime(time: Long) {
         prefs.edit().putLong(KEY_LAST_DISARM_TIME, time).apply()
+    }
+
+    fun getLastSuccessfulDisarmTime(): Long = prefs.getLong(KEY_LAST_SUCCESSFUL_DISARM_TIME, 0L)
+
+    fun setLastSuccessfulDisarmTime(time: Long) {
+        prefs.edit().putLong(KEY_LAST_SUCCESSFUL_DISARM_TIME, time).apply()
+    }
+
+    fun isVehicleBtConnected(): Boolean = prefs.getBoolean(KEY_IS_VEHICLE_BT_CONNECTED, false)
+
+    fun setVehicleBtConnected(connected: Boolean) {
+        prefs.edit().putBoolean(KEY_IS_VEHICLE_BT_CONNECTED, connected).apply()
+    }
+
+    fun isCurrentDriveDisarmed(): Boolean = prefs.getBoolean(KEY_CURRENT_DRIVE_DISARMED, false)
+
+    fun setCurrentDriveDisarmed(disarmed: Boolean) {
+        prefs.edit().putBoolean(KEY_CURRENT_DRIVE_DISARMED, disarmed).apply()
     }
 
     fun getDisarmHistory(): List<DisarmHistoryEntry> {
