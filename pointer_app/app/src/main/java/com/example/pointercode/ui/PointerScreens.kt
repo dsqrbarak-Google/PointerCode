@@ -108,7 +108,7 @@ val PointerRed = Color(0xFFE44126)
 val PointerDark = Color(0xFF0F172A)
 val PlateYellow = Color(0xFFFFD600)
 val SuccessGreen = Color(0xFF2E7D32)
-const val APP_VERSION = "1.4.0"
+const val APP_VERSION = "1.4.1"
 
 @Composable
 fun pointerTextFieldColors() = OutlinedTextFieldDefaults.colors(
@@ -408,27 +408,41 @@ fun DisarmScreen(
                 } else if (state.isBtAutoDisarmEnabled && state.btDeviceName.isNotBlank()) {
                     Spacer(modifier = Modifier.height(10.dp))
                     Surface(
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(14.dp),
                         color = Color(0xFFE0F2FE),
+                        border = BorderStroke(1.dp, Color(0xFFBAE6FD)),
                         modifier = Modifier.clickable { onOpenSetup() }
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.BluetoothConnected,
                                 contentDescription = null,
                                 tint = Color(0xFF0284C7),
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(20.dp)
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "ניטרול אוטומטי פעיל ברכב: ${state.btDeviceName}",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF0369A1)
-                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "ניטרול אוטומטי פעיל ברכב:",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF0369A1)
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                                    Text(
+                                        text = state.btDeviceName,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = Color(0xFF0284C7),
+                                        textAlign = TextAlign.Left,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                            }
                         }
                     }
                 } else {
@@ -731,55 +745,59 @@ fun DisarmScreen(
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.5.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
+                    // Header Title Row
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { isHistoryExpanded = !isHistoryExpanded },
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.History,
-                                contentDescription = null,
-                                tint = Color(0xFF0284C7),
-                                modifier = Modifier.size(20.dp)
-                            )
+                        Icon(
+                            imageVector = Icons.Default.History,
+                            contentDescription = null,
+                            tint = Color(0xFF0284C7),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "היסטוריית שליחות אחרונות",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PointerDark
+                        )
+                        if (state.disarmHistory.isNotEmpty()) {
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "היסטוריית שליחות אחרונות",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = PointerDark
-                            )
-                            if (state.disarmHistory.isNotEmpty()) {
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Surface(
-                                    color = Color(0xFFF1F5F9),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Text(
-                                        text = "${state.disarmHistory.size}",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF475569),
-                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
-                                    )
-                                }
+                            Surface(
+                                color = Color(0xFFF1F5F9),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = "${state.disarmHistory.size}",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF475569),
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                                )
                             }
                         }
+                    }
 
-                        TextButton(
-                            onClick = { isHistoryExpanded = !isHistoryExpanded },
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = if (isHistoryExpanded) "הסתר ▲" else "הצג ▼",
-                                fontSize = 13.sp,
-                                color = Color(0xFF0284C7),
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Toggle Button Placed UNDER the Text
+                    OutlinedButton(
+                        onClick = { isHistoryExpanded = !isHistoryExpanded },
+                        modifier = Modifier.fillMaxWidth().height(40.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, Color(0xFF0284C7)),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = if (isHistoryExpanded) Color(0xFFF1F5F9) else Color(0xFFF0F9FF)
+                        )
+                    ) {
+                        Text(
+                            text = if (isHistoryExpanded) "הסתר היסטוריית שליחות ▲" else "הצג היסטוריית שליחות (${state.disarmHistory.size}) ▼",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF0284C7)
+                        )
                     }
 
                     AnimatedVisibility(visible = isHistoryExpanded) {
