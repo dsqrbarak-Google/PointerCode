@@ -108,7 +108,7 @@ val PointerRed = Color(0xFFE44126)
 val PointerDark = Color(0xFF0F172A)
 val PlateYellow = Color(0xFFFFD600)
 val SuccessGreen = Color(0xFF2E7D32)
-const val APP_VERSION = "1.4.1"
+const val APP_VERSION = "1.4.2"
 
 @Composable
 fun pointerTextFieldColors() = OutlinedTextFieldDefaults.colors(

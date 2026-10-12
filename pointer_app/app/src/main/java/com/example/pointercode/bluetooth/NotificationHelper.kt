@@ -1,5 +1,6 @@
 package com.example.pointercode.bluetooth
 
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -12,6 +13,7 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.app.Person
 import com.example.pointercode.MainActivity
 import com.example.pointercode.R
 import com.example.pointercode.data.AppLogger
@@ -19,6 +21,17 @@ import com.example.pointercode.data.AppLogger
 object NotificationHelper {
     private const val CHANNEL_ID = "pointer_bt_channel"
     private const val NOTIFICATION_ID = 4040
+
+    private val driverPerson = Person.Builder()
+        .setName("נהג")
+        .setKey("driver_user")
+        .build()
+
+    private val pointerPerson = Person.Builder()
+        .setName("קודן פוינטר")
+        .setKey("pointer_bot")
+        .setBot(true)
+        .build()
 
     fun createNotificationChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -29,6 +42,7 @@ object NotificationHelper {
                 description = descriptionText
                 enableVibration(true)
                 vibrationPattern = longArrayOf(0, 150, 100, 200)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             }
             val notificationManager: NotificationManager =
                 context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -67,6 +81,10 @@ object NotificationHelper {
         val title = "מנטרל קודן רכב $formattedVehicle..."
         val text = if (deviceName.isNotBlank()) "זוהה חיבור ל-$deviceName • שולח קוד לפוינטר" else "שולח קוד לפוינטר..."
 
+        val messagingStyle = NotificationCompat.MessagingStyle(driverPerson)
+            .setConversationTitle(title)
+            .addMessage(text, System.currentTimeMillis(), pointerPerson)
+
         val carExtender = NotificationCompat.CarExtender()
             .setColor(0xFF0284C7.toInt())
 
@@ -74,12 +92,12 @@ object NotificationHelper {
             .setSmallIcon(R.drawable.ic_stat_pointer)
             .setContentTitle(title)
             .setContentText(text)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
-            .setCategory(NotificationCompat.CATEGORY_STATUS)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setStyle(messagingStyle)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setAutoCancel(true)
             .setContentIntent(getPendingIntent(context))
-            .setProgress(0, 0, true)
             .extend(carExtender)
             .build()
 
@@ -111,6 +129,10 @@ object NotificationHelper {
             getRetryPendingIntent(context)
         ).build()
 
+        val messagingStyle = NotificationCompat.MessagingStyle(driverPerson)
+            .setConversationTitle(title)
+            .addMessage(fullText, System.currentTimeMillis(), pointerPerson)
+
         val carExtender = NotificationCompat.CarExtender()
             .setColor(0xFFF59E0B.toInt())
 
@@ -118,13 +140,13 @@ object NotificationHelper {
             .setSmallIcon(R.drawable.ic_stat_pointer)
             .setContentTitle(title)
             .setContentText(statusText)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(fullText))
-            .setCategory(NotificationCompat.CATEGORY_STATUS)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setStyle(messagingStyle)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setAutoCancel(true)
             .setContentIntent(getPendingIntent(context))
             .addAction(retryAction)
-            .setProgress(0, 0, true)
             .extend(carExtender)
             .build()
 
@@ -144,6 +166,10 @@ object NotificationHelper {
 
         val defaultSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
 
+        val messagingStyle = NotificationCompat.MessagingStyle(driverPerson)
+            .setConversationTitle(title)
+            .addMessage(text, System.currentTimeMillis(), pointerPerson)
+
         val carExtender = NotificationCompat.CarExtender()
             .setColor(0xFF2E7D32.toInt())
 
@@ -151,9 +177,10 @@ object NotificationHelper {
             .setSmallIcon(R.drawable.ic_stat_pointer)
             .setContentTitle(title)
             .setContentText(text)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
-            .setCategory(NotificationCompat.CATEGORY_STATUS)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setStyle(messagingStyle)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setSound(defaultSoundUri)
             .setVibrate(longArrayOf(0, 150, 100, 250))
             .setAutoCancel(true)
@@ -181,6 +208,10 @@ object NotificationHelper {
             getRetryPendingIntent(context)
         ).build()
 
+        val messagingStyle = NotificationCompat.MessagingStyle(driverPerson)
+            .setConversationTitle(title)
+            .addMessage(text, System.currentTimeMillis(), pointerPerson)
+
         val carExtender = NotificationCompat.CarExtender()
             .setColor(0xFFE44126.toInt())
 
@@ -188,9 +219,10 @@ object NotificationHelper {
             .setSmallIcon(R.drawable.ic_stat_pointer)
             .setContentTitle(title)
             .setContentText(text)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
-            .setCategory(NotificationCompat.CATEGORY_STATUS)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setStyle(messagingStyle)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setAutoCancel(true)
             .setContentIntent(getPendingIntent(context))
             .addAction(retryAction)

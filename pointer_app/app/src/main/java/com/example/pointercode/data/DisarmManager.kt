@@ -20,6 +20,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 object DisarmManager {
 
     private val isExecuting = AtomicBoolean(false)
+    private val skipDelayRequested = AtomicBoolean(false)
     const val SUCCESS_COOLDOWN_MS = 15 * 60 * 1000L   // 15 minutes cooldown after successful disarm
     private const val RAPID_COOLDOWN_MS = 3_000L       // 3 seconds rapid debounce between broadcasts
 
@@ -58,7 +59,12 @@ object DisarmManager {
 
         // Concurrency Guard: Atomic lock prevents multiple coroutines executing simultaneously
         if (!isExecuting.compareAndSet(false, true)) {
-            AppLogger.w("DisarmManager", "Dropped: Another disarm request is currently executing in-flight!")
+            if (forceManual) {
+                AppLogger.i("DisarmManager", "Manual retry tap received while in-flight: waking up retry loop immediately!")
+                skipDelayRequested.set(true)
+            } else {
+                AppLogger.w("DisarmManager", "Dropped: Another disarm request is currently executing in-flight!")
+            }
             return
         }
 
@@ -108,15 +114,15 @@ object DisarmManager {
                 NotificationHelper.showDisarmingNotification(context, vNumber, source)
 
                 var attempt = 1
-                val maxAttempts = 4
+                val maxAttempts = 5
                 var result: PointerResult? = null
 
-                // Retry loop with exponential backoff: 3s, 6s, 12s
-                val retryDelays = longArrayOf(3000L, 6000L, 12000L)
+                // Retry loop with exponential backoff: 3s, 6s, 10s, 15s
+                val retryDelays = longArrayOf(3000L, 6000L, 10000L, 15000L)
 
                 while (attempt <= maxAttempts) {
                     AppLogger.i("DisarmManager", "Attempt $attempt/$maxAttempts: Contacting Pointer API for vehicle $vNumber...")
-                    result = PointerApi.checkCode(vNumber, code, driverName)
+                    result = PointerApi.checkCode(vNumber, code, driverName, context)
 
                     val isNetworkError = result is PointerResult.NetworkError ||
                             (result is PointerResult.Failure && result.rc == -99)
@@ -137,7 +143,16 @@ object DisarmManager {
                         maxAttempts,
                         delayMs / 1000
                     )
-                    delay(delayMs)
+
+                    // Interruptible delay: if user taps "נסה כעת", wake up immediately!
+                    val delayStart = System.currentTimeMillis()
+                    while (System.currentTimeMillis() - delayStart < delayMs) {
+                        if (skipDelayRequested.getAndSet(false)) {
+                            AppLogger.i("DisarmManager", "Delay interrupted by manual tap: proceeding to next attempt immediately!")
+                            break
+                        }
+                        delay(200L)
+                    }
                     attempt++
                 }
 
