@@ -57,11 +57,6 @@
             </intent-filter>
         </receiver>
 
-        <!-- Android Auto Meta-Data for Native Car Screen Notifications -->
-        <meta-data
-            android:name="com.google.android.gms.car.application"
-            android:resource="@xml/automotive_app_desc" />
-
         <!-- Quick Retry Action from Notification -->
         <receiver
             android:name=".bluetooth.DisarmActionReceiver"

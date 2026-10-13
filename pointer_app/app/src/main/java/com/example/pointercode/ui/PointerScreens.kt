@@ -108,7 +108,7 @@ val PointerRed = Color(0xFFE44126)
 val PointerDark = Color(0xFF0F172A)
 val PlateYellow = Color(0xFFFFD600)
 val SuccessGreen = Color(0xFF2E7D32)
-const val APP_VERSION = "1.4.2"
+const val APP_VERSION = "1.4.3"
 
 @Composable
 fun pointerTextFieldColors() = OutlinedTextFieldDefaults.colors(
@@ -1630,13 +1630,6 @@ fun HelpGuideDialog(
                     body = "• ניטרול יחיד בנסיעה: כל זמן שחיבור הבלוטות' לרכב פעיל, הקוד יישלח פעם אחת בלבד.\n• השהיית 15 דקות: בפתיחת האפליקציה, הקוד לא יישלח שוב אם כבר נשלח בהצלחה ברבע השעה האחרונה."
                 )
 
-                Spacer(modifier = Modifier.height(14.dp))
-
-                GuideSectionItem(
-                    icon = "🚙",
-                    title = "תמיכה ב-Android Auto",
-                    body = "האפליקציה מציגה התראות חיות על גבי מסך הרכב ב-Android Auto. אם קיימת בעיית קליטה בכניסה לרכב, מופיעה התראה עם כפתור לניסיון חוזר ישירות ממסך הרכב."
-                )
 
                 Spacer(modifier = Modifier.height(14.dp))
 

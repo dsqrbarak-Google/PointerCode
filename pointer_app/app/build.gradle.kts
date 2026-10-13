@@ -11,13 +11,14 @@ android {
         applicationId = "com.example.pointercode"
         minSdk = 24
         targetSdk = 36
-        versionCode = 16
-        versionName = "1.4.2"
+        versionCode = 17
+        versionName = "1.4.3"
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -78,9 +79,6 @@ dependencies {
   androidTestImplementation(libs.androidx.test.runner)
   androidTestImplementation(libs.androidx.test.espresso.core)
 
-  // Android Auto / Car App Library
-  implementation(libs.androidx.car.app)
-  implementation("androidx.media:media:1.7.0")
 
   // Navigation
   implementation(libs.androidx.navigation3.ui)
