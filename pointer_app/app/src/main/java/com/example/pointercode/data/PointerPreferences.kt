@@ -27,6 +27,7 @@ class PointerPreferences(context: Context) {
         private const val KEY_CURRENT_DRIVE_SESSION_ID = "current_drive_session_id"
         private const val KEY_DISARMED_DRIVE_SESSION_ID = "disarmed_drive_session_id"
         private const val KEY_DISARM_HISTORY = "disarm_history"
+        private const val KEY_DIAGNOSTIC_LOG_ENABLED = "diagnostic_log_enabled"
     }
 
     fun getVehicleNumber(): String = prefs.getString(KEY_VEHICLE_NUMBER, "")?.trim() ?: ""
@@ -50,6 +51,12 @@ class PointerPreferences(context: Context) {
 
     fun setBtAutoDisarmEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_BT_AUTO_DISARM, enabled).apply()
+    }
+
+    fun isDiagnosticLogEnabled(): Boolean = prefs.getBoolean(KEY_DIAGNOSTIC_LOG_ENABLED, false)
+
+    fun setDiagnosticLogEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_DIAGNOSTIC_LOG_ENABLED, enabled).apply()
     }
 
     fun getBtDeviceName(): String = prefs.getString(KEY_BT_DEVICE_NAME, "")?.trim() ?: ""

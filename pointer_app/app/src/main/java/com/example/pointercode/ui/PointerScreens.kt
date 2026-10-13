@@ -108,7 +108,7 @@ val PointerRed = Color(0xFFE44126)
 val PointerDark = Color(0xFF0F172A)
 val PlateYellow = Color(0xFFFFD600)
 val SuccessGreen = Color(0xFF2E7D32)
-const val APP_VERSION = "1.4.3"
+const val APP_VERSION = "1.4.4"
 
 @Composable
 fun pointerTextFieldColors() = OutlinedTextFieldDefaults.colors(
@@ -171,6 +171,7 @@ fun PointerMainScreen(
                             Toast.makeText(context, "יומן האבחון הועתק ללוח!", Toast.LENGTH_SHORT).show()
                         }
                     },
+                    onToggleDiagnosticLog = viewModel::setDiagnosticLogEnabled,
                     onOpenHelpGuide = { showHelpDialog = true }
                 )
             }
@@ -982,6 +983,7 @@ fun SetupScreen(
     onCancel: () -> Unit,
     onOpenLogs: () -> Unit,
     onCopyLogs: () -> Unit,
+    onToggleDiagnosticLog: (Boolean) -> Unit,
     onOpenHelpGuide: () -> Unit
 ) {
     val context = LocalContext.current
@@ -1443,7 +1445,38 @@ fun SetupScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Switch for enabling/disabling diagnostic logging (Default: false)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "רישום אירועים ליומן (לבדיקות)",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = PointerDark
+                            )
+                            Text(
+                                text = if (state.isDiagnosticLogEnabled) "שמירה מופעלת • נרשמים אירועים לאיתור תקלות" else "ברירת מחדל: כבוי (פרטיות מרבית ומהירות)",
+                                fontSize = 11.5.sp,
+                                color = if (state.isDiagnosticLogEnabled) SuccessGreen else Color.Gray
+                            )
+                        }
+                        Switch(
+                            checked = state.isDiagnosticLogEnabled,
+                            onCheckedChange = onToggleDiagnosticLog,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = Color(0xFF0284C7)
+                            )
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -1457,12 +1490,13 @@ fun SetupScreen(
                         ) {
                             Text("העתק יומן ללוח 📋", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         }
-                        OutlinedButton(
+                        Button(
                             onClick = onOpenLogs,
                             modifier = Modifier.weight(1f).height(44.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155)),
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Text("צפה ביומן מלא", fontSize = 13.sp)
+                            Text("צפה ביומן מלא 👁️", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         }
                     }
                 }
@@ -1630,6 +1664,14 @@ fun HelpGuideDialog(
                     body = "• ניטרול יחיד בנסיעה: כל זמן שחיבור הבלוטות' לרכב פעיל, הקוד יישלח פעם אחת בלבד.\n• השהיית 15 דקות: בפתיחת האפליקציה, הקוד לא יישלח שוב אם כבר נשלח בהצלחה ברבע השעה האחרונה."
                 )
 
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                GuideSectionItem(
+                    icon = "📋",
+                    title = "יומן אירועים לבדיקות (Diagnostic Log)",
+                    body = "כברירת מחדל, שמירת יומן אירועים כבויה על מנת להבטיח פרטיות מרבית וביצועים מהירים.\nבמקרה שנתקלת בבעיה בתקשורת או בזיהוי הבלוטות', תוכל להפעיל את מתג שמירת היומן במסך ההגדרות, לבצע את הפעולה, ולאחר מכן ללחוץ על 'העתק ללוח' ולשלוח את היומן למפתח לצורך איתור ופתרון מהיר של התקלה."
+                )
 
                 Spacer(modifier = Modifier.height(14.dp))
 
@@ -1937,27 +1979,37 @@ fun DiagnosticLogsDialog(
         confirmButton = {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                TextButton(onClick = onClear) {
-                    Text("נקה יומן", color = PointerRed, fontSize = 13.sp)
+                Button(
+                    onClick = onClear,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("נקה יומן 🗑️", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
-                Row {
-                    Button(
-                        onClick = onCopy,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Text("העתק ללוח 📋", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White)
-                    }
-                    Spacer(modifier = Modifier.width(6.dp))
-                    OutlinedButton(
-                        onClick = onDismiss,
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Text("סגור", fontSize = 13.sp)
-                    }
+
+                Button(
+                    onClick = onCopy,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+                    modifier = Modifier.weight(1.3f)
+                ) {
+                    Text("העתק ללוח 📋", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF475569)),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+                    modifier = Modifier.weight(0.9f)
+                ) {
+                    Text("סגור ✕", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
             }
         }

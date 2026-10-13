@@ -12,7 +12,8 @@ import java.util.concurrent.ConcurrentLinkedDeque
 /**
  * On-device diagnostic logger for tracking Bluetooth events,
  * network disarm requests, retry attempts, and duplicate suppression.
- * Survives across app restarts via SharedPreferences.
+ * Default is DISABLED to maximize user privacy and device performance.
+ * Survives across app restarts via SharedPreferences when enabled.
  */
 object AppLogger {
     private const val TAG = "PointerCode"
@@ -23,13 +24,28 @@ object AppLogger {
     private val logQueue = ConcurrentLinkedDeque<String>()
     private val timeFormat = SimpleDateFormat("dd/MM HH:mm:ss.SSS", Locale.getDefault())
     private var appContext: Context? = null
+    private var isLoggingEnabled: Boolean = false
 
     @Synchronized
     fun init(context: Context) {
         if (appContext == null) {
             appContext = context.applicationContext
+            val prefs = PointerPreferences(context.applicationContext)
+            isLoggingEnabled = prefs.isDiagnosticLogEnabled()
+            if (isLoggingEnabled) {
+                loadPersistedLogs()
+                i("SYSTEM", "=== App started (v1.4.4) ===")
+            }
+        }
+    }
+
+    fun isEnabled(): Boolean = isLoggingEnabled
+
+    fun setLoggingEnabled(enabled: Boolean) {
+        isLoggingEnabled = enabled
+        if (enabled) {
             loadPersistedLogs()
-            i("SYSTEM", "=== App started (v1.4.3) ===")
+            i("SYSTEM", "=== רישום יומן הופעל לבדיקות ===")
         }
     }
 
@@ -79,6 +95,7 @@ object AppLogger {
     }
 
     private fun addEntry(level: String, tag: String, message: String) {
+        if (!isLoggingEnabled) return
         val time = timeFormat.format(Date())
         val entry = "[$time] [$level/$tag] $message"
         logQueue.add(entry)
@@ -91,8 +108,10 @@ object AppLogger {
     fun getLogs(): List<String> = logQueue.toList()
 
     fun getAllLogsText(): String {
-        return if (logQueue.isEmpty()) {
-            "אין רישומי יומן עדיין."
+        return if (!isLoggingEnabled && logQueue.isEmpty()) {
+            "שמירת יומן אירועים כבויה כעת.\nניתן להפעיל את האפשרות במסך ההגדרות לצורך בדיקות."
+        } else if (logQueue.isEmpty()) {
+            "אין רישומי יומן עדיין (יומן ריק)."
         } else {
             logQueue.joinToString("\n")
         }

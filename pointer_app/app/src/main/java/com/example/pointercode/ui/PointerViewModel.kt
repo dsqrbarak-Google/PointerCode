@@ -63,7 +63,8 @@ data class PointerUiState(
     val disarmHistory: List<DisarmHistoryEntry> = emptyList(),
     val recentlyDisarmedNotice: String? = null,
     val showLogsDialog: Boolean = false,
-    val logsText: String = ""
+    val logsText: String = "",
+    val isDiagnosticLogEnabled: Boolean = false
 )
 
 class PointerViewModel(
@@ -84,7 +85,8 @@ class PointerViewModel(
             isBtAutoDisarmEnabled = preferences.isBtAutoDisarmEnabled(),
             btDeviceName = preferences.getBtDeviceName(),
             btDeviceAddress = preferences.getBtDeviceAddress(),
-            disarmHistory = preferences.getDisarmHistory()
+            disarmHistory = preferences.getDisarmHistory(),
+            isDiagnosticLogEnabled = preferences.isDiagnosticLogEnabled()
         )
     )
     val uiState: StateFlow<PointerUiState> = _uiState.asStateFlow()
@@ -439,5 +441,14 @@ class PointerViewModel(
     fun clearLogs() {
         com.example.pointercode.data.AppLogger.clearLogs()
         _uiState.value = _uiState.value.copy(logsText = "אין רישומי יומן עדיין.")
+    }
+
+    fun setDiagnosticLogEnabled(enabled: Boolean) {
+        preferences.setDiagnosticLogEnabled(enabled)
+        com.example.pointercode.data.AppLogger.setLoggingEnabled(enabled)
+        _uiState.value = _uiState.value.copy(
+            isDiagnosticLogEnabled = enabled,
+            logsText = com.example.pointercode.data.AppLogger.getAllLogsText()
+        )
     }
 }
