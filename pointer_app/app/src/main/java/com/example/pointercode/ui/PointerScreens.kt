@@ -108,7 +108,7 @@ val PointerRed = Color(0xFFE44126)
 val PointerDark = Color(0xFF0F172A)
 val PlateYellow = Color(0xFFFFD600)
 val SuccessGreen = Color(0xFF2E7D32)
-const val APP_VERSION = "1.4.5"
+const val APP_VERSION = "1.4.6"
 
 @Composable
 fun pointerTextFieldColors() = OutlinedTextFieldDefaults.colors(
@@ -637,7 +637,7 @@ fun DisarmScreen(
                                     shape = RoundedCornerShape(8.dp)
                                 ) {
                                     Text(
-                                        text = "השליחה האוטומטית דולגה כדי לא לשלוח שוב תוך 15 דקות",
+                                        text = "השליחה האוטומטית דולגה כדי לא לשלוח שוב תוך 10 דקות",
                                         fontSize = 12.sp,
                                         color = SuccessGreen,
                                         fontWeight = FontWeight.Medium,
@@ -1661,7 +1661,7 @@ fun HelpGuideDialog(
                 GuideSectionItem(
                     icon = "🛡️",
                     title = "חוקי מניעת כפילויות",
-                    body = "• ניטרול יחיד בנסיעה: כל זמן שחיבור הבלוטות' לרכב פעיל, הקוד יישלח פעם אחת בלבד.\n• השהיית 15 דקות: בפתיחת האפליקציה, הקוד לא יישלח שוב אם כבר נשלח בהצלחה ברבע השעה האחרונה."
+                    body = "• ניטרול יחיד בנסיעה: כל זמן שחיבור הבלוטות' לרכב פעיל, הקוד יישלח פעם אחת בלבד.\n• השהיית 10 דקות: בפתיחת האפליקציה או בחיבור מחדש, הקוד לא יישלח שוב אם כבר נשלח בהצלחה ב-10 הדקות האחרונות."
                 )
 
 

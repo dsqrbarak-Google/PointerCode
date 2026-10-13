@@ -34,7 +34,7 @@ object AppLogger {
             isLoggingEnabled = prefs.isDiagnosticLogEnabled()
             if (isLoggingEnabled) {
                 loadPersistedLogs()
-                i("SYSTEM", "=== App started (v1.4.5) ===")
+                i("SYSTEM", "=== App started (v1.4.6) ===")
             }
         }
     }

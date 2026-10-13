@@ -108,8 +108,16 @@ class BluetoothReceiver : BroadcastReceiver() {
             // Check if this drive session was already disarmed
             val disarmedSessionId = prefs.getDisarmedDriveSessionId()
             if (sessionId != 0L && sessionId == disarmedSessionId) {
-                AppLogger.w("BluetoothReceiver", "Suppressed: Drive session $sessionId already disarmed (BT still connected)")
-                return
+                val lastSuccess = prefs.getLastSuccessfulDisarmTime()
+                val timePassed = System.currentTimeMillis() - lastSuccess
+                if (lastSuccess > 0 && timePassed >= DisarmManager.SUCCESS_COOLDOWN_MS) {
+                    AppLogger.i("BluetoothReceiver", "Drive session $sessionId was disarmed ${timePassed / 1000}s ago (>= 10 min). Refreshing drive session to allow re-disarm.")
+                    sessionId = System.currentTimeMillis()
+                    prefs.setCurrentDriveSessionId(sessionId)
+                } else {
+                    AppLogger.w("BluetoothReceiver", "Suppressed: Drive session $sessionId already disarmed (BT still connected)")
+                    return
+                }
             }
 
             // Short debounce (60 seconds) to avoid duplicate sends on rapid bluetooth reconnects

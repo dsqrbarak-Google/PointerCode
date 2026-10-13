@@ -22,7 +22,7 @@ object DisarmManager {
 
     private val isExecuting = AtomicBoolean(false)
     private val skipDelayRequested = AtomicBoolean(false)
-    const val SUCCESS_COOLDOWN_MS = 15 * 60 * 1000L   // 15 minutes cooldown after successful disarm
+    const val SUCCESS_COOLDOWN_MS = 10 * 60 * 1000L   // 10 minutes cooldown after successful disarm
     private const val RAPID_COOLDOWN_MS = 3_000L       // 3 seconds rapid debounce between broadcasts
 
     fun isDisarmInProgress(): Boolean = isExecuting.get()
@@ -81,20 +81,27 @@ object DisarmManager {
                 return
             }
 
-            // 2. Bluetooth Drive Session Deduplication: "לא לשלוח יותר מפעם אחת בנסיעה (כל זמן שה-BT עדיין מחובר)"
+            // 2. Bluetooth Drive Session Deduplication:
+            // Don't send more than once per drive session, UNLESS >= 10 minutes passed since last success
+            // (Pointer immobilizer re-arms after ~15 min, so 10 min window allows safe re-disarm upon return).
             if (driveSessionId != 0L) {
                 val disarmedSession = prefs.getDisarmedDriveSessionId()
                 if (driveSessionId == disarmedSession) {
-                    AppLogger.w("DisarmManager", "Suppressed: Drive session $driveSessionId was already successfully disarmed (BT connected)!")
-                    isExecuting.set(false)
-                    return
+                    val timeSinceSuccess = now - lastSuccessTime
+                    if (lastSuccessTime > 0 && timeSinceSuccess < SUCCESS_COOLDOWN_MS) {
+                        AppLogger.w("DisarmManager", "Suppressed: Drive session $driveSessionId was already successfully disarmed (BT connected) ${timeSinceSuccess / 1000}s ago (< 10 min)!")
+                        isExecuting.set(false)
+                        return
+                    } else {
+                        AppLogger.i("DisarmManager", "Drive session $driveSessionId: ${timeSinceSuccess / 1000}s passed since last success (>= 10 min). Proceeding with disarm because vehicle re-armed.")
+                    }
                 }
             } else {
-                // 3. Global 15-Minute Cooldown for app launch / shortcuts: "אם נשלח בהצלחה ברבע שעה אחרונה"
+                // 3. Global 10-Minute Cooldown for app launch / shortcuts: "אם נשלח בהצלחה ב-10 דקות אחרונות"
                 val timeSinceSuccess = now - lastSuccessTime
                 if (lastSuccessTime > 0 && timeSinceSuccess < SUCCESS_COOLDOWN_MS) {
                     val secRemaining = (SUCCESS_COOLDOWN_MS - timeSinceSuccess) / 1000
-                    AppLogger.w("DisarmManager", "Suppressed by 15-min cooldown: Disarmed successfully ${timeSinceSuccess / 1000}s ago ($secRemaining sec remaining)")
+                    AppLogger.w("DisarmManager", "Suppressed by 10-min cooldown: Disarmed successfully ${timeSinceSuccess / 1000}s ago ($secRemaining sec remaining)")
                     isExecuting.set(false)
                     return
                 }

@@ -98,13 +98,13 @@ class PointerViewModel(
         val history = preferences.getDisarmHistory()
         val lastSuccessTime = preferences.getLastSuccessfulDisarmTime()
         val timePassedMs = System.currentTimeMillis() - lastSuccessTime
-        val fifteenMinutesMs = DisarmManager.SUCCESS_COOLDOWN_MS
+        val cooldownMs = DisarmManager.SUCCESS_COOLDOWN_MS
 
         val latest = history.firstOrNull()
 
         if (preferences.isConfigured()) {
-            if (lastSuccessTime > 0 && timePassedMs < fifteenMinutesMs && latest?.success == true) {
-                // If sent successfully less than 15 minutes ago, don't send again automatically on app launch
+            if (lastSuccessTime > 0 && timePassedMs < cooldownMs && latest?.success == true) {
+                // If sent successfully less than 10 minutes ago, don't send again automatically on app launch
                 // so the user can verify history and see that BT disarm worked.
                 val minutesAgo = timePassedMs / 60000L
                 val secondsAgo = (timePassedMs / 1000L) % 60
@@ -115,10 +115,10 @@ class PointerViewModel(
                     disarmHistory = history,
                     recentlyDisarmedNotice = notice
                 )
-                com.example.pointercode.data.AppLogger.i("PointerViewModel", "App opened: disarm suppressed by 15-min cooldown ($timeText ago)")
+                com.example.pointercode.data.AppLogger.i("PointerViewModel", "App opened: disarm suppressed by 10-min cooldown ($timeText ago)")
             } else {
-                // If never sent, sent > 15 min ago, OR previous attempt was a failure:
-                val source = if (latest != null && !latest.success && timePassedMs < fifteenMinutesMs) {
+                // If never sent, sent > 10 min ago, OR previous attempt was a failure:
+                val source = if (latest != null && !latest.success && timePassedMs < cooldownMs) {
                     "פתיחת אפליקציה (לאחר שגיאה)"
                 } else {
                     "פתיחת אפליקציה"

@@ -153,6 +153,11 @@ class BluetoothLogicTest {
         assertEquals("com.example.pointercode.ACTION_RETRY_DISARM", DisarmActionReceiver.ACTION_RETRY_DISARM)
     }
 
+    @Test
+    fun testSuccessCooldownIs10Minutes() {
+        assertEquals(10 * 60 * 1000L, com.example.pointercode.data.DisarmManager.SUCCESS_COOLDOWN_MS)
+    }
+
     private fun matchesDevice(
         deviceAddress: String?,
         deviceName: String?,

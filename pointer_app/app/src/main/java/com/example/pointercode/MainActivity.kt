@@ -91,7 +91,7 @@ class MainActivity : ComponentActivity() {
             val timePassed = System.currentTimeMillis() - lastSuccess
             if (lastSuccess > 0 && timePassed < com.example.pointercode.data.DisarmManager.SUCCESS_COOLDOWN_MS) {
                 val minAgo = (timePassed / 60000L).coerceAtLeast(1)
-                com.example.pointercode.data.AppLogger.i("MainActivity", "Shortcut launch suppressed by 15-min cooldown ($minAgo min ago)")
+                com.example.pointercode.data.AppLogger.i("MainActivity", "Shortcut launch suppressed by 10-min cooldown ($minAgo min ago)")
                 android.widget.Toast.makeText(this, "קודן פוינטר כבר נוטרל בהצלחה לפני $minAgo דק'", android.widget.Toast.LENGTH_SHORT).show()
                 finish()
             } else {
