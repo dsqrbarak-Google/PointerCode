@@ -1,6 +1,7 @@
 package com.example.pointercode.data
 
 import android.content.Context
+import com.example.pointercode.bluetooth.BluetoothReceiver
 import com.example.pointercode.bluetooth.NotificationHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -118,11 +119,11 @@ object DisarmManager {
                 var result: PointerResult? = null
 
                 // Retry loop with exponential backoff: 3s, 6s, 10s, 15s
-                val retryDelays = longArrayOf(3000L, 6000L, 10000L, 15000L)
+                val retryDelays = BluetoothReceiver.retryDelaysMs
 
                 while (attempt <= maxAttempts) {
                     AppLogger.i("DisarmManager", "Attempt $attempt/$maxAttempts: Contacting Pointer API for vehicle $vNumber...")
-                    result = PointerApi.checkCode(vNumber, code, driverName, context)
+                    result = PointerApi.checkCode(vNumber, code, driverName)
 
                     val isNetworkError = result is PointerResult.NetworkError ||
                             (result is PointerResult.Failure && result.rc == -99)

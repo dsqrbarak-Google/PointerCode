@@ -132,4 +132,8 @@ class BluetoothReceiver : BroadcastReceiver() {
             )
         }
     }
+
+    companion object {
+        val retryDelaysMs = longArrayOf(3000L, 6000L, 10000L, 15000L)
+    }
 }

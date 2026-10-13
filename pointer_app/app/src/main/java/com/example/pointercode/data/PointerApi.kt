@@ -1,9 +1,5 @@
 package com.example.pointercode.data
 
-import android.content.Context
-import android.net.ConnectivityManager
-import android.net.Network
-import android.net.NetworkCapabilities
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.BufferedReader
@@ -21,13 +17,12 @@ sealed class PointerResult {
 
 object PointerApi {
     private const val API_URL = "https://fleet.pointer4u.co.il/code/ws/checkcode.ashx"
-    private const val TIMEOUT_MS = 6000
+    private const val TIMEOUT_MS = 12000
 
     suspend fun checkCode(
         vehicleNumber: String,
         code: String,
-        name: String = "",
-        context: Context? = null
+        name: String = ""
     ): PointerResult = withContext(Dispatchers.IO) {
         val cleanVehicleNumber = vehicleNumber.filter { it.isDigit() }
         val cleanCode = code.trim()
@@ -42,21 +37,7 @@ object PointerApi {
         var connection: HttpURLConnection? = null
         try {
             val url = URL(API_URL)
-
-            // Smart In-Car Network Routing:
-            // When entering a modern car (e.g. XPENG Motor DD), the phone connects to the car's local
-            // Wi-Fi hotspot for Wireless Android Auto projection. This local Wi-Fi hotspot has NO internet access.
-            // Android's default DNS tries to resolve over the local Wi-Fi hotspot, resulting in UnknownHostException.
-            // By finding a network with validated internet or CELLULAR transport, we route directly through mobile data!
-            val targetNetwork = findInternetNetwork(context)
-            connection = if (targetNetwork != null) {
-                AppLogger.d("PointerApi", "Routing HTTP request via selected network: $targetNetwork")
-                targetNetwork.openConnection(url) as HttpURLConnection
-            } else {
-                url.openConnection() as HttpURLConnection
-            }
-
-            connection.apply {
+            connection = (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
                 connectTimeout = TIMEOUT_MS
                 readTimeout = TIMEOUT_MS
@@ -105,46 +86,6 @@ object PointerApi {
             PointerResult.NetworkError("שגיאת תקשורת: ${e.localizedMessage ?: "שגיאה לא ידועה"}", e)
         } finally {
             connection?.disconnect()
-        }
-    }
-
-    private fun findInternetNetwork(context: Context?): Network? {
-        if (context == null) return null
-        try {
-            val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return null
-            val allNetworks = cm.allNetworks
-            if (allNetworks.isEmpty()) return null
-
-            // 1. First priority: Network with validated internet access
-            for (net in allNetworks) {
-                val caps = cm.getNetworkCapabilities(net) ?: continue
-                if (caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-                    caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) {
-                    return net
-                }
-            }
-
-            // 2. Second priority (in car): Cellular data (bypasses unvalidated in-car Wi-Fi hotspot!)
-            for (net in allNetworks) {
-                val caps = cm.getNetworkCapabilities(net) ?: continue
-                if (caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-                    caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) {
-                    return net
-                }
-            }
-
-            // 3. Fallback: Any network claiming internet
-            for (net in allNetworks) {
-                val caps = cm.getNetworkCapabilities(net) ?: continue
-                if (caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
-                    return net
-                }
-            }
-
-            return cm.activeNetwork
-        } catch (t: Throwable) {
-            AppLogger.w("PointerApi", "Failed to inspect networks: ${t.message}")
-            return null
         }
     }
 
