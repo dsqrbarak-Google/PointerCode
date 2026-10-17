@@ -34,7 +34,7 @@ object AppLogger {
             isLoggingEnabled = prefs.isDiagnosticLogEnabled()
             if (isLoggingEnabled) {
                 loadPersistedLogs()
-                i("SYSTEM", "=== App started (v1.4.6) ===")
+                i("SYSTEM", "=== App started (v1.4.7) ===")
             }
         }
     }
@@ -75,23 +75,23 @@ object AppLogger {
 
     fun d(tag: String, message: String) {
         addEntry("DEBUG", tag, message)
-        Log.d("$TAG/$tag", message)
+        try { Log.d("$TAG/$tag", message) } catch (_: Throwable) {}
     }
 
     fun i(tag: String, message: String) {
         addEntry("INFO", tag, message)
-        Log.i("$TAG/$tag", message)
+        try { Log.i("$TAG/$tag", message) } catch (_: Throwable) {}
     }
 
     fun w(tag: String, message: String) {
         addEntry("WARN", tag, message)
-        Log.w("$TAG/$tag", message)
+        try { Log.w("$TAG/$tag", message) } catch (_: Throwable) {}
     }
 
     fun e(tag: String, message: String, throwable: Throwable? = null) {
         val extra = throwable?.let { " [${it.javaClass.simpleName}: ${it.localizedMessage}]" } ?: ""
         addEntry("ERROR", tag, "$message$extra")
-        Log.e("$TAG/$tag", message, throwable)
+        try { Log.e("$TAG/$tag", message, throwable) } catch (_: Throwable) {}
     }
 
     private fun addEntry(level: String, tag: String, message: String) {

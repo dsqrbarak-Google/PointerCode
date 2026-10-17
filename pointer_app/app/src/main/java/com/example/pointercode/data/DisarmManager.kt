@@ -130,7 +130,7 @@ object DisarmManager {
 
                 while (attempt <= maxAttempts) {
                     AppLogger.i("DisarmManager", "Attempt $attempt/$maxAttempts: Contacting Pointer API for vehicle $vNumber...")
-                    result = PointerApi.checkCode(vNumber, code, driverName)
+                    result = PointerApi.checkCode(vNumber, code, driverName, context)
 
                     val isNetworkError = result is PointerResult.NetworkError ||
                             (result is PointerResult.Failure && result.rc == -99)
